@@ -156,12 +156,15 @@ export async function runNode3(projectId: string) {
       // 从 design_modules 获取 theme
       const dm = modules.find(m => m.moduleIndex === sp.screenIndex);
 
+      // 归一化 screenIndex 为 0-based（LLM 可能返回 1-based）
+      const normalizedIndex = sp.screenIndex >= 1 ? sp.screenIndex - 1 : sp.screenIndex;
+
       const [screen] = await Screen.findOrCreate({
-        where: { projectId, screenIndex: sp.screenIndex },
+        where: { projectId, screenIndex: normalizedIndex },
         defaults: {
           id: uuidv4(),
           projectId,
-          screenIndex: sp.screenIndex,
+          screenIndex: normalizedIndex,
           label: sp.label,
           theme: dm?.theme || '',
           status: 'prompt_ready',
@@ -208,6 +211,23 @@ export async function runNode3(projectId: string) {
 }
 
 /**
+ * 根据前端传入的 0-based 索引查找屏记录
+ * 兼容历史数据（1-based）和新数据（0-based）
+ */
+async function findScreenByIndex(projectId: string, index: number): Promise<Screen | null> {
+  // 先尝试精确匹配 screenIndex
+  let screen = await Screen.findOne({ where: { projectId, screenIndex: index } });
+  if (screen) return screen;
+
+  // 回退：按 screenIndex 排序后取第 index 个（兼容 1-based 历史数据）
+  const allScreens = await Screen.findAll({
+    where: { projectId },
+    order: [['screenIndex', 'ASC']],
+  });
+  return allScreens[index] || null;
+}
+
+/**
  * 节点4: 单屏生图
  * 生图结果写入 screens 表，版本记录写入 screen_versions 表
  */
@@ -215,9 +235,7 @@ export async function runNode4(projectId: string, screenIndex: number) {
   const project = await Project.findByPk(projectId);
   if (!project) throw new AppError('项目不存在', 404);
 
-  const screen = await Screen.findOne({
-    where: { projectId, screenIndex },
-  });
+  const screen = await findScreenByIndex(projectId, screenIndex);
   if (!screen) throw new AppError(`屏 ${screenIndex} 不存在`, 400);
   if (!screen.prompt) {
     throw new AppError(`屏 ${screenIndex} 缺少 prompt`, 400);
@@ -274,9 +292,7 @@ export async function runNode4(projectId: string, screenIndex: number) {
  * 屏级确认
  */
 export async function approveScreen(projectId: string, screenIndex: number) {
-  const screen = await Screen.findOne({
-    where: { projectId, screenIndex },
-  });
+  const screen = await findScreenByIndex(projectId, screenIndex);
   if (!screen) throw new AppError('屏不存在', 404);
 
   await screen.update({ status: 'approved' });
@@ -301,9 +317,7 @@ export async function reviseScreen(
   feedback?: string,
   newPrompt?: string,
 ) {
-  const screen = await Screen.findOne({
-    where: { projectId, screenIndex },
-  });
+  const screen = await findScreenByIndex(projectId, screenIndex);
   if (!screen) throw new AppError('屏不存在', 404);
 
   const oldPrompt = screen.prompt || '';
