@@ -2,8 +2,8 @@ import OpenAI from 'openai';
 import { config } from '../config';
 
 const client = new OpenAI({
-  baseURL: config.chaiquanLLM.baseUrl,
-  apiKey: config.chaiquanLLM.apiKey,
+  baseURL: config.ark.baseUrl,
+  apiKey: config.ark.apiKey,
 });
 
 export interface ChatMessage {
@@ -12,14 +12,14 @@ export interface ChatMessage {
 }
 
 /**
- * 调用 GPT-5.5 chat completions（非流式）
+ * 调用 doubao-seed-2.0 chat completions（非流式）
  */
 export async function chatCompletion(
   messages: ChatMessage[],
   options?: { temperature?: number; maxTokens?: number; jsonMode?: boolean },
 ): Promise<string> {
   const params: Record<string, any> = {
-    model: 'gpt-5.4',
+    model: 'doubao-seed-2-0-pro-260215',
     messages: messages as OpenAI.ChatCompletionMessageParam[],
     temperature: options?.temperature ?? 0.7,
     max_tokens: options?.maxTokens,
@@ -37,14 +37,14 @@ export async function chatCompletion(
 }
 
 /**
- * 调用 GPT-5.5 chat completions（流式）
+ * 调用 doubao-seed-2.0 chat completions（流式）
  */
 export async function chatCompletionStream(
   messages: ChatMessage[],
   options?: { temperature?: number; maxTokens?: number },
 ): Promise<AsyncIterable<string>> {
   const stream = await client.chat.completions.create({
-    model: 'gpt-5.4',
+    model: 'doubao-seed-2-0-pro-260215',
     messages: messages as OpenAI.ChatCompletionMessageParam[],
     temperature: options?.temperature ?? 0.7,
     max_tokens: options?.maxTokens,
@@ -60,7 +60,7 @@ export async function chatCompletionStream(
 }
 
 /**
- * 调用 GPT-5.5 并期望 JSON 结构化输出
+ * 调用 doubao-seed-2.0 并期望 JSON 结构化输出
  * 自动重试最多 2 次（应对模型偶尔不遵循指令）
  */
 export async function chatCompletionJSON<T>(

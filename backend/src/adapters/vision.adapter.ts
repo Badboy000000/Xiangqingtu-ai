@@ -4,8 +4,8 @@ import * as path from 'path';
 import sharp from 'sharp';
 
 const client = new OpenAI({
-  baseURL: config.chaiquanLLM.baseUrl,
-  apiKey: config.chaiquanLLM.apiKey,
+  baseURL: config.ark.baseUrl,
+  apiKey: config.ark.apiKey,
 });
 
 /** 图片压缩阈值：超过此尺寸会自动压缩后发送 */
@@ -64,7 +64,7 @@ export async function analyzeImages(
   content.push({ type: 'text', text: prompt });
 
   const completion = await client.chat.completions.create({
-    model: 'gpt-5.4',
+    model: 'doubao-seed-2-0-pro-260215',
     messages: [
       {
         role: 'user',
