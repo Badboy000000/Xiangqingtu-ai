@@ -19,7 +19,7 @@ export async function chatCompletion(
   options?: { temperature?: number; maxTokens?: number },
 ): Promise<string> {
   const completion = await client.chat.completions.create({
-    model: 'openai/gpt-5.5',
+    model: 'gpt-5.4',
     messages: messages as OpenAI.ChatCompletionMessageParam[],
     temperature: options?.temperature ?? 0.7,
     max_tokens: options?.maxTokens,
@@ -37,7 +37,7 @@ export async function chatCompletionStream(
   options?: { temperature?: number; maxTokens?: number },
 ): Promise<AsyncIterable<string>> {
   const stream = await client.chat.completions.create({
-    model: 'openai/gpt-5.5',
+    model: 'gpt-5.4',
     messages: messages as OpenAI.ChatCompletionMessageParam[],
     temperature: options?.temperature ?? 0.7,
     max_tokens: options?.maxTokens,

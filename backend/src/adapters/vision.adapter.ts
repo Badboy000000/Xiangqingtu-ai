@@ -64,7 +64,7 @@ export async function analyzeImages(
   content.push({ type: 'text', text: prompt });
 
   const completion = await client.chat.completions.create({
-    model: 'openai/gpt-5.5',
+    model: 'gpt-5.4',
     messages: [
       {
         role: 'user',
