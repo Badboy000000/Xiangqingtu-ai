@@ -20,6 +20,12 @@ export const config = {
     apiKey: process.env.SSY_API_KEY || '',
   },
 
+  // 柴犬平台 (GPT Image 2 同步生图)
+  chaiquan: {
+    baseUrl: process.env.CHAIQUAN_BASE_URL || 'https://image.wucur.com',
+    apiKey: process.env.CHAIQUAN_API_KEY || '',
+  },
+
   ark: {
     baseUrl: process.env.ARK_BASE_URL || 'https://ark.cn-beijing.volces.com/api/v3',
     apiKey: process.env.ARK_API_KEY || '',

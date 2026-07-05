@@ -1,7 +1,7 @@
 import * as fs from 'fs';
 import * as path from 'path';
 import { config } from '../config';
-import { generateWithSeedream, generateWithGPTImage2, waitForGPTImage2 } from '../adapters/image.adapter';
+import { generateWithSeedream, generateWithGPTImage2 } from '../adapters/image.adapter';
 import { chatCompletionJSON } from '../adapters/llm.adapter';
 import { NODE4_SYSTEM_PROMPT } from '../prompts/system-prompts';
 import type { ImageGenResult } from '../adapters/image.adapter';
@@ -125,7 +125,7 @@ export async function generateScreenImage(params: {
 }
 
 /**
- * 备选方案: GPT Image 2 生图
+ * 备选方案: GPT Image 2 生图（柴犬平台同步 API）
  */
 export async function generateScreenImageFallback(params: {
   prompt: string;
@@ -134,12 +134,11 @@ export async function generateScreenImageFallback(params: {
   screenLabel: string;
   versionNumber: number;
 }): Promise<{ imageUrl: string; originalUrl: string }> {
-  const requestId = await generateWithGPTImage2({
+  const results = await generateWithGPTImage2({
     prompt: params.prompt,
     size: '1024x1536',
   });
 
-  const results = await waitForGPTImage2(requestId);
   if (!results.length) {
     throw new Error('GPT Image 2 生成返回空结果');
   }

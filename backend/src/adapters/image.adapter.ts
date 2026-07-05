@@ -82,11 +82,50 @@ export async function generateWithSeedream(params: {
   }));
 }
 
-// ─── GPT Image 2 (胜算云 Tasks API) ──────────────────────
+// ─── GPT Image 2 (柴犬平台 同步 API) ──────────────────────
 
 /**
- * GPT Image 2 - 提交生成任务
+ * GPT Image 2 同步生图（柴犬平台）
+ * 直接返回结果，无需轮询
  */
+export async function generateWithGPTImage2(params: {
+  prompt: string;
+  size?: string;
+  n?: number;
+}): Promise<ImageGenResult[]> {
+  const response = await fetch(`${config.chaiquan.baseUrl}/v1/images/generations`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'Authorization': `Bearer ${config.chaiquan.apiKey}`,
+    },
+    body: JSON.stringify({
+      model: 'gpt-image-2',
+      prompt: params.prompt,
+      size: params.size || '1024x1536',
+      n: params.n || 1,
+      quality: 'auto',
+      response_format: 'url',
+    }),
+  });
+
+  if (!response.ok) {
+    const errText = await response.text();
+    throw new Error(`GPT Image 2 生图失败: ${response.status} - ${errText}`);
+  }
+
+  const data = await response.json() as {
+    data: Array<{ url: string; revised_prompt?: string }>;
+  };
+  return data.data.map(item => ({ url: item.url }));
+}
+
+// ──────────────────────────────────────────────────────
+// 以下为胜算云异步轮询方案（已停用，保留备用）
+// 若需切换回胜算云，取消下方注释并替换上方 generateWithGPTImage2
+// ──────────────────────────────────────────────────────
+
+/*
 export async function generateWithGPTImage2(params: {
   prompt: string;
   size?: string;
@@ -109,46 +148,27 @@ export async function generateWithGPTImage2(params: {
       output_compression: 100,
     }),
   });
-
   if (!response.ok) {
     const errText = await response.text();
     throw new Error(`GPT Image 2 任务提交失败: ${response.status} - ${errText}`);
   }
-
   const data = await response.json() as { request_id?: string; id?: string };
   return data.request_id || data.id || '';
 }
 
-/**
- * GPT Image 2 - 查询任务结果
- */
 export async function queryGPTImage2Task(requestId: string): Promise<ImageGenResult[] | null> {
   const response = await fetch(`${config.ssy.baseUrl}/tasks/generations/${requestId}`, {
     method: 'GET',
-    headers: {
-      'Authorization': `Bearer ${config.ssy.apiKey}`,
-    },
+    headers: { 'Authorization': `Bearer ${config.ssy.apiKey}` },
   });
-
-  if (!response.ok) {
-    throw new Error(`GPT Image 2 任务查询失败: ${response.status}`);
-  }
-
-  const data = await response.json() as {
-    status?: string;
-    data?: Array<{ url: string }>;
-  };
-
+  if (!response.ok) throw new Error(`GPT Image 2 任务查询失败: ${response.status}`);
+  const data = await response.json() as { status?: string; data?: Array<{ url: string }> };
   if (data.status === 'completed' && data.data) {
     return data.data.map((item: { url: string }) => ({ url: item.url }));
   }
-
-  return null; // 未完成
+  return null;
 }
 
-/**
- * GPT Image 2 - 轮询等待结果
- */
 export async function waitForGPTImage2(
   requestId: string,
   maxAttempts = 30,
@@ -161,3 +181,4 @@ export async function waitForGPTImage2(
   }
   throw new Error('GPT Image 2 生成超时');
 }
+*/
