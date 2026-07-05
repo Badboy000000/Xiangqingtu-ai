@@ -156,3 +156,46 @@ export async function generateScreenImageFallback(params: {
     originalUrl: results[0].url,
   };
 }
+
+/**
+ * 智能生图：Seedream 优先，内容审核不通过时自动切换 GPT Image 2
+ * - Seedream 便宜快速，但内容审核严格（品牌名/功效词易触发 400）
+ * - GPT Image 2 对正常商业内容更宽松，作为兜底方案
+ */
+export async function generateScreenImageSmart(params: {
+  prompt: string;
+  referenceImages?: string[];
+  screenIndex: number;
+  projectId: string;
+  screenLabel: string;
+  versionNumber: number;
+}): Promise<{ imageUrl: string; originalUrl: string }> {
+  try {
+    console.log(`[Node4] 屏${params.screenIndex} 尝试 Seedream 5.0 生图...`);
+    const result = await generateScreenImage(params);
+    console.log(`[Node4] 屏${params.screenIndex} Seedream 生图成功`);
+    return result;
+  } catch (err: any) {
+    const errMsg = err.message || '';
+    // 检测 Seedream 内容安全审核 (400 + InputTextSensitiveContentDetected)
+    const isSensitiveError = errMsg.includes('400') && errMsg.includes('InputTextSensitiveContentDetected');
+    if (!isSensitiveError) {
+      // 非审核相关错误，直接抛出
+      throw err;
+    }
+
+    console.warn(
+      `[Node4] 屏${params.screenIndex} Seedream 触发内容安全审核，自动切换 GPT Image 2 重试...`
+    );
+
+    const result = await generateScreenImageFallback({
+      prompt: params.prompt,
+      screenIndex: params.screenIndex,
+      projectId: params.projectId,
+      screenLabel: params.screenLabel,
+      versionNumber: params.versionNumber,
+    });
+    console.log(`[Node4] 屏${params.screenIndex} GPT Image 2 生图成功`);
+    return result;
+  }
+}

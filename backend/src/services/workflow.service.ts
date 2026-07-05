@@ -3,7 +3,7 @@ import { v4 as uuidv4 } from 'uuid';
 import { analyzeProductInfo } from './node1-info.service';
 import { generateDesignPlan } from './node2-plan.service';
 import { generateScreenPrompts } from './node3-prompt.service';
-import { generateScreenImage, generateJointInstructions } from './node4-image.service';
+import { generateScreenImageSmart, generateJointInstructions } from './node4-image.service';
 import { composeLongImage } from './export.service';
 import { reviseScreenPrompt } from './node3-prompt.service';
 import { AppError } from '../middleware/error-handler';
@@ -296,7 +296,7 @@ export async function runNode4(projectId: string, screenIndex: number) {
     const versionNumber = existingVersions + 1;
 
     const referenceImages = project.referenceImageUrls?.length ? project.referenceImageUrls : undefined;
-    const result = await generateScreenImage({
+    const result = await generateScreenImageSmart({
       prompt: screen.prompt,
       referenceImages,
       screenIndex,
