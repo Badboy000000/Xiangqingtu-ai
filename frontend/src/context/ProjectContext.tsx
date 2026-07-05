@@ -643,8 +643,9 @@ export function ProjectProvider({ children }: { children: ReactNode }) {
       // 将后端字段映射到前端状态结构
       const mappedProject = {
         ...project,
-        productInfo: project.infoAnalysisResult || {},
-        node1Output: project.infoAnalysisResult || null,
+        // 注意：不加载 productInfo/node1Output，让 ProductInfoPanel 自动触发 SSE 工作流
+        // productInfo: project.infoAnalysisResult || {},  //  注释掉，避免直接显示旧数据
+        node1Output: null,  // ✅ 设为 null，触发流式渲染
         node2Output: project.designPlanResult || null,
         node3Output: project.promptGenMotherPrompt || null,
       };
@@ -665,6 +666,18 @@ export function ProjectProvider({ children }: { children: ReactNode }) {
       // 恢复设计规划文本
       if (project.designPlanResult?.overallStyle) {
         dispatch({ type: 'SET_PLAN_TEXT', payload: project.designPlanResult.overallStyle });
+      }
+      
+      // 根据项目已有数据判断当前应该处于哪个步骤
+      // 如果有 screens 且有图片，说明已完成；否则从 node1 开始
+      const hasScreensWithImages = project.screens && project.screens.some((s: any) => s.imageUrl);
+      if (hasScreensWithImages) {
+        dispatch({ type: 'SET_WORKFLOW_STEP', payload: 'complete' });
+        dispatch({ type: 'SET_WORKFLOW_PROGRESS', payload: 100 });
+      } else {
+        // 有项目但没有完成的工作流，设置为 node1 准备状态
+        dispatch({ type: 'SET_WORKFLOW_STEP', payload: 'node1' });
+        dispatch({ type: 'SET_WORKFLOW_PROGRESS', payload: 10 });
       }
     } catch (err: any) {
       dispatch({ type: 'SET_ERROR', payload: err.message || '加载项目失败' });

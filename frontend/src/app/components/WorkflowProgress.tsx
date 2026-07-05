@@ -11,10 +11,10 @@ const STEPS = [
 
 export function WorkflowProgress() {
   const { state } = useProject();
-  const { workflowStep, workflowProgress } = state;
+  const { workflowStep, workflowProgress, project } = state;
 
-  // 不显示：idle 或 complete 后延迟隐藏
-  if (workflowStep === "idle") return null;
+  // 不显示：没有项目数据且处于 idle 状态
+  if (!project && workflowStep === "idle") return null;
 
   const isComplete = workflowStep === "complete";
   const currentIdx = STEPS.findIndex((s) => s.key === workflowStep);
