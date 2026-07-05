@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useNavigate } from "react-router";
 import { Download, RefreshCw, CheckCircle2, AlertCircle, FileImage } from "lucide-react";
 import { zh, en } from "../../constants/theme";
@@ -37,6 +37,8 @@ function Divider() {
 interface Screen {
   label: string;
   url: string;
+  screenIndex?: number;
+  status?: string;
 }
 
 interface ExportConfigPanelProps {
@@ -46,7 +48,7 @@ interface ExportConfigPanelProps {
 
 export function ExportConfigPanel({ screens, confirmed }: ExportConfigPanelProps) {
   const navigate = useNavigate();
-  const { state, runExport } = useProject();
+  const { state, runExport, runApproveScreen } = useProject();
   const [format, setFormat] = useState<Format>("JPG");
   const [quality, setQuality] = useState<Quality>("hd");
   const [sizeKey, setSizeKey] = useState<SizeKey>("750");
@@ -58,15 +60,38 @@ export function ExportConfigPanel({ screens, confirmed }: ExportConfigPanelProps
 
   const handleExport = async () => {
     const width = sizeKey === 'custom' ? parseInt(customWidth) || 750 : parseInt(sizeKey);
+
+    // 先确保所有有图片的屏都已 approved（双重保险）
+    const screensToApprove = state.screens
+      .map((s, i) => ({ ...s, arrIndex: i }))
+      .filter(s => s.imageUrl && s.status !== 'approved');
+
+    for (const s of screensToApprove) {
+      try {
+        await runApproveScreen(s.arrIndex);
+      } catch { /* 忽略单个 approve 失败 */ }
+    }
+
     try {
       await runExport(format, quality, width);
-      setDone(true);
     } catch {
       // error handled in context
     }
   };
 
-  const exportUrl = state.exportResult?.outputUrl;
+  // 导出结果变化时自动触发下载
+  useEffect(() => {
+    if (state.exportResult?.outputUrl) {
+      setDone(true);
+      const a = document.createElement('a');
+      a.href = state.exportResult.outputUrl;
+      a.download = '';
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+    }
+  }, [state.exportResult?.outputUrl]);
+
 
   return (
     <div style={{ width: "360px", flexShrink: 0, background: "#fff", borderLeft: "1px solid rgba(0,0,0,0.07)", display: "flex", flexDirection: "column", overflow: "hidden" }}>
@@ -234,11 +259,6 @@ export function ExportConfigPanel({ screens, confirmed }: ExportConfigPanelProps
         <button onClick={() => navigate("/canvas")} style={{ width: "100%", marginTop: "10px", padding: "8px 0", borderRadius: "8px", background: "transparent", border: "none", color: "rgba(30,20,32,0.38)", fontSize: "12px", cursor: "pointer", fontFamily: zh }}>
           返回工作台继续调整
         </button>
-        {done && exportUrl && (
-          <a href={exportUrl} download style={{ display: "block", width: "100%", marginTop: "8px", padding: "8px 0", borderRadius: "8px", background: "rgba(34,197,94,0.06)", border: "1px solid rgba(34,197,94,0.2)", color: "#22c55e", fontSize: "12px", fontWeight: 600, cursor: "pointer", fontFamily: zh, textAlign: "center" as const, textDecoration: "none" }}>
-            ↓ 下载导出长图
-          </a>
-        )}
       </div>
     </div>
   );

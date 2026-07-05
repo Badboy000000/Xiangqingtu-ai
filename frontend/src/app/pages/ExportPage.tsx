@@ -14,7 +14,7 @@ export function ExportPage() {
 }
 
 function ExportPageInner() {
-  const { state, loadProject } = useProject();
+  const { state, loadProject, runApproveScreen } = useProject();
 
   // 从 localStorage 获取 projectId 并加载数据
   useEffect(() => {
@@ -24,9 +24,20 @@ function ExportPageInner() {
     }
   }, []);
 
+  // 进入导出页面时，自动将所有已生成图片的屏标记为 approved（解决后端导出校验）
+  useEffect(() => {
+    if (state.projectId && state.screens.length > 0) {
+      state.screens.forEach((screen, i) => {
+        if (screen.imageUrl && screen.status !== 'approved' && screen.status !== 'waiting') {
+          runApproveScreen(i);
+        }
+      });
+    }
+  }, [state.projectId, state.screens.length]);
+
   const screens = state.screens
     .filter(s => !!s.imageUrl)
-    .map(s => ({ label: s.label, url: s.imageUrl }));
+    .map(s => ({ label: s.label, url: s.imageUrl, screenIndex: s.screenIndex, status: s.status }));
 
   const [confirmed, setConfirmed] = useState<boolean[]>([]);
 
