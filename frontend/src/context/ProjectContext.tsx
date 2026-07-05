@@ -643,9 +643,11 @@ export function ProjectProvider({ children }: { children: ReactNode }) {
       // 将后端字段映射到前端状态结构
       const mappedProject = {
         ...project,
-        // 注意：不加载 productInfo/node1Output，让 ProductInfoPanel 自动触发 SSE 工作流
-        // productInfo: project.infoAnalysisResult || {},  //  注释掉，避免直接显示旧数据
-        node1Output: null,  // ✅ 设为 null，触发流式渲染
+        // 如果项目已完成（有生成的屏），直接加载 productInfo 避免显示加载状态
+        // 如果是新项目或未完成的项目，设为 null 以触发流式渲染效果
+        node1Output: project.screens && project.screens.some((s: any) => s.imageUrl)
+          ? (project.infoAnalysisResult || null)  // 已完成：加载已有数据
+          : null,  // 未完成：触发流式渲染
         node2Output: project.designPlanResult || null,
         node3Output: project.promptGenMotherPrompt || null,
       };
