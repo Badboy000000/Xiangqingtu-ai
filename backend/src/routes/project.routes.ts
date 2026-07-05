@@ -9,7 +9,7 @@ import type { AuthRequest } from '../middleware/auth.middleware';
 import {
   createProject, getProject, deleteProject, listProjects,
   analyzeProject, planProject, generatePrompts,
-  generateScreen, prepareNode4, approveScreenHandler, reviseScreenHandler,
+  generateScreen, approveScreenHandler, reviseScreenHandler,
   exportProject, getLatestExport,
 } from '../controllers/project.controller';
 import { streamWorkflow } from '../controllers/workflow-stream.controller';
@@ -66,7 +66,6 @@ router.delete('/:id', authMiddleware, deleteProject);
 router.post('/:id/analyze', authMiddleware, analyzeProject);       // 节点1
 router.post('/:id/plan', authMiddleware, planProject);             // 节点2
 router.post('/:id/prompts', authMiddleware, generatePrompts);      // 节点3
-router.post('/:id/prepare-generate', authMiddleware, prepareNode4);  // 节点4前置：联合生图指令
 router.get('/:id/workflow/stream', authMiddleware, streamWorkflow);  // 流式工作流（SSE）
 
 // ─── 屏级操作 ─────────────────────────────────────────────

@@ -2,11 +2,7 @@ import * as fs from 'fs';
 import * as path from 'path';
 import { config } from '../config';
 import { generateWithSeedream, generateWithGPTImage2 } from '../adapters/image.adapter';
-import { chatCompletionJSON } from '../adapters/llm.adapter';
-import { NODE4_SYSTEM_PROMPT } from '../prompts/system-prompts';
 import type { ImageGenResult } from '../adapters/image.adapter';
-import type { ChatMessage } from '../adapters/llm.adapter';
-import type { Node3Output, Node4Output } from '../types';
 
 /**
  * 下载远程图片到本地 uploads/{projectId} 目录，按规范命名
@@ -44,47 +40,6 @@ async function downloadImage(params: {
   fs.writeFileSync(filePath, buffer);
 
   return `/uploads/${projectId}/${filename}`;
-}
-
-/**
- * 节点4前置步骤: 生成联合生图指令
- * 基于分屏提示词和参考图，通过 LLM 生成联合生图指令
- */
-export async function generateJointInstructions(params: {
-  node3Output: Node3Output;
-  referenceImages?: string[];
-}): Promise<Node4Output> {
-  const { node3Output, referenceImages } = params;
-
-  const userContent = `## 全局生图母提示词
-${node3Output.globalMotherPrompt}
-
-## 分屏生图提示词
-${node3Output.screenPrompts.map(sp => `
-### 第${sp.screenIndex}屏 - ${sp.label}
-- 生成目标: ${sp.generationGoal}
-- 核心视觉: ${sp.coreVisual}
-- 构图策略: ${sp.compositionStrategy}
-- 主体/道具: ${sp.subjectProps}
-- 背景/风格: ${sp.bgStyle}
-- 文字载体与层级: ${sp.textCarrierLevel}
-- 产品角度/景别: ${sp.productAngle}
-- 一致性约束: ${sp.consistencyConstraints}
-- 平台规则: ${sp.platformRules}
-- Prompt: ${sp.prompt}
-`).join('\n')}
-
-${referenceImages && referenceImages.length > 0 ? `## 参考图
-${referenceImages.map((url, i) => `参考图${i + 1}: ${url}`).join('\n')}` : '## 参考图\n无参考图'}
-
-请生成联合生图总指令和每屏的联合生图结果。`;
-
-  const messages: ChatMessage[] = [
-    { role: 'system', content: NODE4_SYSTEM_PROMPT },
-    { role: 'user', content: userContent },
-  ];
-
-  return chatCompletionJSON<Node4Output>(messages, { temperature: 0.5 });
 }
 
 /**

@@ -138,23 +138,6 @@ export interface ScreenVersion {
 export type ExportFormat = 'JPG' | 'PNG' | 'WebP';
 export type ExportQuality = 'standard' | 'hd' | 'print';
 
-// ─── Node4 联合生图 ───────────────────────────────────
-export interface Node4ScreenResult {
-  screenIndex: number;
-  moduleName: string;
-  referenceImages: string[];
-  correspondingPrompt: string;
-  generationInstruction: string;
-  consistencyAnchor: string;
-  platformRules: string;
-  outputStatus: string;
-}
-
-export interface Node4Output {
-  globalJointInstruction: string;     // 联合生图总指令
-  screenResults: Node4ScreenResult[]; // 分屏联合生图结果
-}
-
 // ─── API Request/Response ─────────────────────────────────
 export interface CreateProjectRequest {
   name: string;

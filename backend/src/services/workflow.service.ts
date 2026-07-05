@@ -3,7 +3,7 @@ import { v4 as uuidv4 } from 'uuid';
 import { analyzeProductInfo } from './node1-info.service';
 import { generateDesignPlan } from './node2-plan.service';
 import { generateScreenPrompts } from './node3-prompt.service';
-import { generateScreenImageSmart, generateJointInstructions } from './node4-image.service';
+import { generateScreenImageSmart } from './node4-image.service';
 import { composeLongImage } from './export.service';
 import { reviseScreenPrompt } from './node3-prompt.service';
 import { AppError } from '../middleware/error-handler';
@@ -201,71 +201,6 @@ export async function runNode3(projectId: string) {
     }
 
     return node3Output;
-  } catch (err: unknown) {
-    await project.update({ status: 'failed' });
-    throw err;
-  }
-}
-
-/**
- * 节点4前置: 生成联合生图指令
- * 全局指令存入 projects.joint_gen_instruction
- * 每屏的 moduleName/generationInstruction/consistencyAnchor 写入 screens 表
- */
-export async function runNode4Prepare(projectId: string) {
-  const project = await Project.findByPk(projectId);
-  if (!project) throw new AppError('项目不存在', 404);
-  if (!project.promptGenMotherPrompt) {
-    throw new AppError('请先完成节点3（分屏 Prompt 生成）', 400);
-  }
-
-  try {
-    // 从 DB 重建 node3Output 供 LLM 使用
-    const screens = await Screen.findAll({
-      where: { projectId },
-      order: [['screenIndex', 'ASC']],
-    });
-    const node3Output = {
-      globalMotherPrompt: project.promptGenMotherPrompt,
-      screenPrompts: screens.map(s => ({
-        screenIndex: s.screenIndex,
-        label: s.label,
-        prompt: s.prompt || '',
-        generationGoal: s.generationGoal,
-        coreVisual: s.coreVisual,
-        compositionStrategy: s.compositionStrategy,
-        subjectProps: s.subjectProps,
-        bgStyle: s.bgStyle,
-        textCarrierLevel: s.textCarrierLevel,
-        productAngle: s.productAngle,
-        consistencyConstraints: s.consistencyConstraints,
-        platformRules: s.platformRules,
-        outputRequirements: s.outputRequirements,
-      })),
-    };
-
-    const referenceImages = project.referenceImageUrls?.length ? project.referenceImageUrls : undefined;
-    const node4Output = await generateJointInstructions({
-      node3Output,
-      referenceImages,
-    });
-
-    // 全局指令存入 projects 表
-    await project.update({ jointGenInstruction: node4Output.globalJointInstruction });
-
-    // 每屏的联合生图指令写入 screens 表
-    for (const sr of node4Output.screenResults) {
-      const screen = screens.find(s => s.screenIndex === sr.screenIndex);
-      if (screen) {
-        await screen.update({
-          moduleName: sr.moduleName,
-          generationInstruction: sr.generationInstruction,
-          consistencyAnchor: sr.consistencyAnchor,
-        });
-      }
-    }
-
-    return node4Output;
   } catch (err: unknown) {
     await project.update({ status: 'failed' });
     throw err;

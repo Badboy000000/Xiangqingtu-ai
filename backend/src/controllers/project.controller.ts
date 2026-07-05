@@ -3,7 +3,7 @@ import { Project, Screen, DesignModule, ScreenVersion, ScreenRevision, ExportRec
 import { AppError } from '../middleware/error-handler';
 import type { AuthRequest } from '../middleware/auth.middleware';
 import {
-  runNode1, runNode2, runNode3, runNode4, runNode4Prepare,
+  runNode1, runNode2, runNode3, runNode4,
   approveScreen, reviseScreen, runExport,
 } from '../services/workflow.service';
 
@@ -140,16 +140,6 @@ export async function generateScreen(req: AuthRequest, res: Response, next: Next
     const id = req.params.id as string;
     const screenIndex = parseInt(req.params.idx as string, 10);
     const result = await runNode4(id, screenIndex);
-    res.json({ success: true, data: result });
-  } catch (err) {
-    next(err);
-  }
-}
-
-export async function prepareNode4(req: AuthRequest, res: Response, next: NextFunction) {
-  try {
-    const id = req.params.id as string;
-    const result = await runNode4Prepare(id);
     res.json({ success: true, data: result });
   } catch (err) {
     next(err);

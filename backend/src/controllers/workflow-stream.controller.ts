@@ -7,13 +7,12 @@ import {
   runNode1,
   runNode2,
   runNode3,
-  runNode4Prepare,
   runNode4,
 } from '../services/workflow.service';
 
 /**
  * 流式工作流控制器
- * 依次执行节点1→节点2→节点3→节点4前置，并通过SSE推送结果
+ * 依次执行节点1→节点2→节点3→节点4（逐屏生图），并通过SSE推送结果
  */
 export async function streamWorkflow(
   req: AuthRequest,
@@ -189,29 +188,8 @@ export async function streamWorkflow(
       throw err;
     }
 
-    // ── 节点4前置: 联合生图指令 ──
-    sse.sendProgress('node4', 80, '正在准备生图指令...');
-    console.log(`[Workflow] Starting Node 4 Prepare for project ${projectId}`);
-    
-    try {
-      const node4Result = await runNode4Prepare(projectId);
-      
-      sse.send({
-        type: 'node4_prepare',
-        data: node4Result,
-        timestamp: Date.now(),
-      });
-      
-      sse.sendProgress('node4', 82, '生图指令准备完成');
-      console.log(`[Workflow] Node 4 Prepare completed for project ${projectId}`);
-    } catch (err: any) {
-      console.error(`[Workflow] Node 4 Prepare failed for project ${projectId}:`, err);
-      sse.sendError(err.message || '节点4前置执行失败');
-      throw err;
-    }
-
-    // ── 节点4: 逐屏生图 ──
-    sse.sendProgress('node4', 85, '正在生成图片...');
+    // ── 节点4: 逐屏生图（直接使用节点3的 prompt + 参考图） ──
+    sse.sendProgress('node4', 80, '正在生成图片...');
     console.log(`[Workflow] Starting Node 4 image generation for project ${projectId}`);
 
     // 获取所有屏信息
@@ -223,7 +201,7 @@ export async function streamWorkflow(
     for (let i = 0; i < allScreens.length; i++) {
       if (sse.closed) break;
 
-      sse.sendProgress('node4', 85 + Math.floor(((i) / allScreens.length) * 14),
+      sse.sendProgress('node4', 80 + Math.floor(((i) / allScreens.length) * 19),
         `正在生成第 ${i + 1}/${allScreens.length} 屏图片...`);
       console.log(`[Workflow] Generating image for screen ${i} of project ${projectId}`);
 
