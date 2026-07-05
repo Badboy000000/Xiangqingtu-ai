@@ -26,6 +26,12 @@ export const config = {
     apiKey: process.env.CHAIQUAN_API_KEY || '',
   },
 
+  // 柴犬平台 (GPT-5.5 LLM 聊天)
+  chaiquanLLM: {
+    baseUrl: process.env.CHAIQUAN_LLM_BASE_URL || 'https://api.2000.run/v1',
+    apiKey: process.env.CHAIQUAN_LLM_API_KEY || '',
+  },
+
   ark: {
     baseUrl: process.env.ARK_BASE_URL || 'https://ark.cn-beijing.volces.com/api/v3',
     apiKey: process.env.ARK_API_KEY || '',

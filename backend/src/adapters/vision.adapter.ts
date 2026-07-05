@@ -4,8 +4,8 @@ import * as path from 'path';
 import sharp from 'sharp';
 
 const client = new OpenAI({
-  baseURL: config.ssy.baseUrl,
-  apiKey: config.ssy.apiKey,
+  baseURL: config.chaiquanLLM.baseUrl,
+  apiKey: config.chaiquanLLM.apiKey,
 });
 
 /** 图片压缩阈值：超过此尺寸会自动压缩后发送 */

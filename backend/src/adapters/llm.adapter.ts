@@ -2,8 +2,8 @@ import OpenAI from 'openai';
 import { config } from '../config';
 
 const client = new OpenAI({
-  baseURL: config.ssy.baseUrl,
-  apiKey: config.ssy.apiKey,
+  baseURL: config.chaiquanLLM.baseUrl,
+  apiKey: config.chaiquanLLM.apiKey,
 });
 
 export interface ChatMessage {
