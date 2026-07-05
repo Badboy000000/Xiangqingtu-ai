@@ -15,6 +15,9 @@ export const ProductInfoPanel = forwardRef<HTMLDivElement>((_, ref) => {
     // 如果已经有生成的屏，说明工作流已完成，不应再次触发
     const hasGeneratedScreens = state.screens.some(s => s.imageUrl);
     
+    // 额外保护：如果项目状态已是 complete，绝对不要触发
+    if (state.workflowStep === 'complete') return;
+    
     if (
       state.projectId && 
       state.project && 
@@ -31,7 +34,7 @@ export const ProductInfoPanel = forwardRef<HTMLDivElement>((_, ref) => {
         workflowTriggeredRef.current = false; // 允许重试
       });
     }
-  }, [state.projectId, state.project, state.project?.productInfo, state.screens, startWorkflow]);
+  }, [state.projectId, state.project, state.project?.productInfo, state.screens, state.workflowStep, startWorkflow]);
 
   // 判断是否已完成节点1（有商品信息）
   const hasProductInfo = !!state.project?.productInfo;

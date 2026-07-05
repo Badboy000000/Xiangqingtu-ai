@@ -640,18 +640,8 @@ export function ProjectProvider({ children }: { children: ReactNode }) {
   const loadProject = useCallback(async (id: string) => {
     try {
       const project = await api.getProject(id);
-      // 将后端字段映射到前端状态结构
-      const mappedProject = {
-        ...project,
-        // 如果项目已完成（有生成的屏），直接加载 productInfo 避免显示加载状态
-        // 如果是新项目或未完成的项目，设为 null 以触发流式渲染效果
-        node1Output: project.screens && project.screens.some((s: any) => s.imageUrl)
-          ? (project.infoAnalysisResult || null)  // 已完成：加载已有数据
-          : null,  // 未完成：触发流式渲染
-        node2Output: project.designPlanResult || null,
-        node3Output: project.promptGenMotherPrompt || null,
-      };
-      dispatch({ type: 'SET_PROJECT', payload: { projectId: id, project: mappedProject } });
+      
+      // 先加载 screens，确保 ProductInfoPanel 能正确判断 hasGeneratedScreens
       if (project.screens) {
         dispatch({
           type: 'SET_SCREENS',
@@ -665,6 +655,19 @@ export function ProjectProvider({ children }: { children: ReactNode }) {
           })),
         });
       }
+      
+      // 将后端字段映射到前端状态结构
+      const mappedProject = {
+        ...project,
+        // 如果项目已完成（有生成的屏），直接加载 productInfo 避免显示加载状态
+        // 如果是新项目或未完成的项目，设为 null 以触发流式渲染效果
+        node1Output: project.screens && project.screens.some((s: any) => s.imageUrl)
+          ? (project.infoAnalysisResult || null)  // 已完成：加载已有数据
+          : null,  // 未完成：触发流式渲染
+        node2Output: project.designPlanResult || null,
+        node3Output: project.promptGenMotherPrompt || null,
+      };
+      dispatch({ type: 'SET_PROJECT', payload: { projectId: id, project: mappedProject } });
       // 恢复设计规划文本
       if (project.designPlanResult?.overallStyle) {
         dispatch({ type: 'SET_PLAN_TEXT', payload: project.designPlanResult.overallStyle });
