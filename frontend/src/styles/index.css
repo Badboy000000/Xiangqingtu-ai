@@ -1,0 +1,137 @@
+@import './fonts.css';
+@import './tailwind.css';
+@import './theme.css';
+
+/* ===== Premium Scrollbar System ===== */
+
+/* --- WebKit (Chrome / Edge / Safari) --- */
+::-webkit-scrollbar {
+  width: 5px;
+  height: 5px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+  margin: 4px 0;
+}
+
+::-webkit-scrollbar-thumb {
+  background: linear-gradient(
+    180deg,
+    rgba(210, 150, 90, 0.18) 0%,
+    rgba(200, 130, 70, 0.28) 100%
+  );
+  border-radius: 99px;
+  border: 1.5px solid transparent;
+  background-clip: padding-box;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  min-height: 32px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: linear-gradient(
+    180deg,
+    rgba(249, 115, 22, 0.38) 0%,
+    rgba(200, 120, 60, 0.48) 100%
+  );
+  background-clip: padding-box;
+  border-width: 1px;
+  box-shadow: 0 0 6px rgba(249, 115, 22, 0.12);
+}
+
+::-webkit-scrollbar-thumb:active {
+  background: linear-gradient(
+    180deg,
+    rgba(249, 115, 22, 0.52) 0%,
+    rgba(220, 100, 40, 0.58) 100%
+  );
+  background-clip: padding-box;
+  border-width: 0.5px;
+  box-shadow: 0 0 10px rgba(249, 115, 22, 0.18);
+}
+
+::-webkit-scrollbar-corner {
+  background: transparent;
+}
+
+/* --- Firefox --- */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(200, 140, 80, 0.22) transparent;
+}
+
+/* --- Scroll Edge Fade (内容边缘渐隐效果) ---
+ * 用法：外层容器加 .scroll-fade（仅做定位，不设 overflow），
+ *       内层子元素自行设置 overflow-y: auto 承担滚动。
+ */
+.scroll-fade {
+  position: relative;
+}
+
+.scroll-fade > .scroll-fade__top,
+.scroll-fade > .scroll-fade__bottom {
+  content: '';
+  position: absolute;
+  left: 0;
+  right: 0;
+  height: 28px;
+  pointer-events: none;
+  z-index: 2;
+  opacity: 0;
+  transition: opacity 0.35s ease;
+}
+
+.scroll-fade > .scroll-fade__top {
+  top: 0;
+  background: linear-gradient(
+    180deg,
+    rgba(255, 255, 255, 0.92) 0%,
+    transparent 100%
+  );
+}
+
+.scroll-fade > .scroll-fade__bottom {
+  bottom: 0;
+  background: linear-gradient(
+    0deg,
+    rgba(255, 255, 255, 0.92) 0%,
+    transparent 100%
+  );
+}
+
+.scroll-fade[data-scroll-top='true'] > .scroll-fade__top {
+  opacity: 1;
+}
+
+.scroll-fade[data-scroll-bottom='true'] > .scroll-fade__bottom {
+  opacity: 1;
+}
+
+/* --- 面板内滚动区域 hover 时滚动条渐显 --- */
+.scroll-reveal::-webkit-scrollbar-thumb {
+  background: linear-gradient(
+    180deg,
+    rgba(210, 150, 90, 0.06) 0%,
+    rgba(200, 130, 70, 0.10) 100%
+  );
+  background-clip: padding-box;
+}
+
+.scroll-reveal:hover::-webkit-scrollbar-thumb {
+  background: linear-gradient(
+    180deg,
+    rgba(210, 150, 90, 0.22) 0%,
+    rgba(200, 130, 70, 0.32) 100%
+  );
+  background-clip: padding-box;
+}
+
+.scroll-reveal:hover::-webkit-scrollbar-thumb:hover {
+  background: linear-gradient(
+    180deg,
+    rgba(249, 115, 22, 0.38) 0%,
+    rgba(200, 120, 60, 0.48) 100%
+  );
+  background-clip: padding-box;
+  box-shadow: 0 0 6px rgba(249, 115, 22, 0.12);
+}

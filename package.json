@@ -1,0 +1,14 @@
+{
+  "name": "ecommerce-detail",
+  "version": "1.0.0",
+  "private": true,
+  "description": "电商详情图生成系统",
+  "scripts": {
+    "dev": "chcp 65001 >nul & concurrently -n backend,frontend -c blue,green \"cd backend && npm run dev\" \"cd frontend && npm run dev\"",
+    "dev:backend": "chcp 65001 >nul & cd backend && npm run dev",
+    "dev:frontend": "chcp 65001 >nul & cd frontend && npm run dev"
+  },
+  "devDependencies": {
+    "concurrently": "^9.1.2"
+  }
+}

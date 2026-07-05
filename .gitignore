@@ -1,0 +1,45 @@
+# ============ 依赖 ============
+node_modules/
+
+# ============ 构建产物 ============
+frontend/dist/
+*.tsbuildinfo
+
+# ============ 环境变量（含 API Key 等敏感信息）============
+.env
+.env.local
+.env.*.local
+
+# ============ 用户生成的上传文件 ============
+backend/uploads/
+
+# ============ 文档目录（不同步）============
+docxs/
+
+# ============ IDE / 编辑器 ============
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# ============ 系统文件 ============
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# ============ 日志与临时文件 ============
+*.log
+npm-debug.log*
+backend/test-output.txt
+backend/test-result.json
+
+# ============ Qoder 内部状态 ============
+.qoder/
+
+# ============ Claude 配置 ============
+.claude/
+
+# ============ 项目级杂项 ============
+*.md
+!README.md
