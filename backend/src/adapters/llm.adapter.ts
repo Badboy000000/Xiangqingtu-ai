@@ -16,15 +16,22 @@ export interface ChatMessage {
  */
 export async function chatCompletion(
   messages: ChatMessage[],
-  options?: { temperature?: number; maxTokens?: number },
+  options?: { temperature?: number; maxTokens?: number; jsonMode?: boolean },
 ): Promise<string> {
-  const completion = await client.chat.completions.create({
+  const params: Record<string, any> = {
     model: 'gpt-5.4',
     messages: messages as OpenAI.ChatCompletionMessageParam[],
     temperature: options?.temperature ?? 0.7,
     max_tokens: options?.maxTokens,
     stream: false,
-  });
+  };
+
+  // JSON mode: 强制模型输出合法 JSON
+  if (options?.jsonMode) {
+    params.response_format = { type: 'json_object' };
+  }
+
+  const completion = await client.chat.completions.create(params as any);
 
   return completion.choices[0]?.message?.content || '';
 }
@@ -54,23 +61,35 @@ export async function chatCompletionStream(
 
 /**
  * 调用 GPT-5.5 并期望 JSON 结构化输出
+ * 自动重试最多 2 次（应对模型偶尔不遵循指令）
  */
 export async function chatCompletionJSON<T>(
   messages: ChatMessage[],
   options?: { temperature?: number; maxTokens?: number },
 ): Promise<T> {
-  const content = await chatCompletion(messages, options);
+  const MAX_RETRIES = 2;
 
-  // 尝试从 markdown code block 中提取 JSON
-  let jsonStr = content;
-  const codeBlockMatch = content.match(/```(?:json)?\s*([\s\S]*?)```/);
-  if (codeBlockMatch) {
-    jsonStr = codeBlockMatch[1].trim();
+  for (let attempt = 0; attempt <= MAX_RETRIES; attempt++) {
+    const content = await chatCompletion(messages, { ...options, jsonMode: true });
+
+    // 尝试从 markdown code block 中提取 JSON
+    let jsonStr = content;
+    const codeBlockMatch = content.match(/```(?:json)?\s*([\s\S]*?)```/);
+    if (codeBlockMatch) {
+      jsonStr = codeBlockMatch[1].trim();
+    }
+
+    try {
+      return JSON.parse(jsonStr) as T;
+    } catch {
+      if (attempt < MAX_RETRIES) {
+        console.warn(`[LLM] JSON 解析失败 (第${attempt + 1}次)，自动重试...`);
+        continue;
+      }
+      throw new Error(`LLM JSON 解析失败 (已重试${MAX_RETRIES}次): ${content.substring(0, 200)}`);
+    }
   }
 
-  try {
-    return JSON.parse(jsonStr) as T;
-  } catch {
-    throw new Error(`LLM JSON 解析失败: ${content.substring(0, 200)}`);
-  }
+  // TypeScript 不会到这里，但保险起见
+  throw new Error('LLM JSON 解析失败: 超出最大重试次数');
 }
