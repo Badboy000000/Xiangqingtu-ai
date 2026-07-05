@@ -11,7 +11,17 @@ export const ProductInfoPanel = forwardRef<HTMLDivElement>((_, ref) => {
 
   // 当 projectId 存在且项目已加载但没有 productInfo 时，自动启动工作流
   useEffect(() => {
-    if (state.projectId && state.project && !state.project?.productInfo && !workflowTriggeredRef.current) {
+    // 只有全新项目（无 screens 或 screens 都为空）才自动启动工作流
+    // 如果已经有生成的屏，说明工作流已完成，不应再次触发
+    const hasGeneratedScreens = state.screens.some(s => s.imageUrl);
+    
+    if (
+      state.projectId && 
+      state.project && 
+      !state.project?.productInfo && 
+      !workflowTriggeredRef.current &&
+      !hasGeneratedScreens  // ← 关键：只有没有生成图片时才触发
+    ) {
       console.log('[ProductInfoPanel] Auto-starting workflow for project:', state.projectId);
       workflowTriggeredRef.current = true;
       
@@ -21,7 +31,7 @@ export const ProductInfoPanel = forwardRef<HTMLDivElement>((_, ref) => {
         workflowTriggeredRef.current = false; // 允许重试
       });
     }
-  }, [state.projectId, state.project, state.project?.productInfo, startWorkflow]);
+  }, [state.projectId, state.project, state.project?.productInfo, state.screens, startWorkflow]);
 
   // 判断是否已完成节点1（有商品信息）
   const hasProductInfo = !!state.project?.productInfo;
