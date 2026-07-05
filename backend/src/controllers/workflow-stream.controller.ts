@@ -211,7 +211,7 @@ export async function streamWorkflow(
         sse.send({
           type: 'node4_screen',
           data: {
-            screenIndex: allScreens[i].screenIndex,
+            screenIndex: i,  // 使用 0-based 索引，与前端 screens 数组下标一致
             imageUrl: result.imageUrl,
             total: allScreens.length,
           },
@@ -224,7 +224,7 @@ export async function streamWorkflow(
         sse.send({
           type: 'node4_screen_error',
           data: {
-            screenIndex: allScreens[i].screenIndex,
+            screenIndex: i,  // 使用 0-based 索引，与前端 screens 数组下标一致
             error: err.message || `第${i + 1}屏生图失败`,
           },
           timestamp: Date.now(),

@@ -1,14 +1,15 @@
-import { forwardRef } from "react";
-import { Download, ZoomIn, Loader2, Sparkles, Images } from "lucide-react";
+import { forwardRef, useState, useCallback } from "react";
+import { Download, ZoomIn, Loader2, Sparkles, Images, X } from "lucide-react";
 import { zh, cardStyle } from "../../constants/theme";
 import { useProject } from "../../../context/ProjectContext";
 
 interface ImageCardProps {
   screen: { label: string; imageUrl: string; status: string };
   index: number;
+  onPreview: (imageUrl: string, label: string) => void;
 }
 
-export const ImageCard = forwardRef<HTMLDivElement, ImageCardProps>(({ screen, index }, ref) => {
+export const ImageCard = forwardRef<HTMLDivElement, ImageCardProps>(({ screen, index, onPreview }, ref) => {
   const { state } = useProject();
   const isGenerating = state.node4Loading.includes(index);
   const hasImage = !!screen.imageUrl;
@@ -52,7 +53,9 @@ export const ImageCard = forwardRef<HTMLDivElement, ImageCardProps>(({ screen, i
               onMouseEnter={e => { (e.currentTarget as HTMLDivElement).style.background = "rgba(0,0,0,0.3)"; (e.currentTarget as HTMLDivElement).style.opacity = "1"; }}
               onMouseLeave={e => { (e.currentTarget as HTMLDivElement).style.background = "rgba(0,0,0,0)"; (e.currentTarget as HTMLDivElement).style.opacity = "0"; }}
             >
-              <button style={{ display: "flex", alignItems: "center", gap: "4px", padding: "7px 12px", borderRadius: "7px", background: "rgba(255,255,255,0.9)", border: "none", fontSize: "11px", fontWeight: 600, cursor: "pointer", color: "#1e1420", fontFamily: zh }}>
+              <button
+                onClick={() => onPreview(screen.imageUrl, screen.label)}
+                style={{ display: "flex", alignItems: "center", gap: "4px", padding: "7px 12px", borderRadius: "7px", background: "rgba(255,255,255,0.9)", border: "none", fontSize: "11px", fontWeight: 600, cursor: "pointer", color: "#1e1420", fontFamily: zh }}>
                 <ZoomIn size={12} /> 查看
               </button>
               <a href={screen.imageUrl} download style={{ display: "flex", alignItems: "center", gap: "4px", padding: "7px 12px", borderRadius: "7px", background: "rgba(249,115,22,0.9)", border: "none", fontSize: "11px", fontWeight: 600, cursor: "pointer", color: "#fff", fontFamily: zh, textDecoration: "none" }}>
@@ -90,6 +93,13 @@ export function ImagesPanel({ imageRefs }: ImagesPanelProps) {
   const isWorkflowComplete = workflowStep === 'complete';
   const hasPrompts = screens.length > 0 && screens.every(s => !!s.prompt);
   const isAnyGenerating = state.node4Loading.length > 0;
+
+  // 图片放大预览
+  const [previewImage, setPreviewImage] = useState<{ url: string; label: string } | null>(null);
+  const handlePreview = useCallback((imageUrl: string, label: string) => {
+    setPreviewImage({ url: imageUrl, label });
+  }, []);
+  const closePreview = useCallback(() => setPreviewImage(null), []);
 
   const handleBatchGenerate = async () => {
     for (let i = 0; i < screens.length; i++) {
@@ -169,10 +179,81 @@ export function ImagesPanel({ imageRefs }: ImagesPanelProps) {
             key={i}
             screen={screen}
             index={i}
+            onPreview={handlePreview}
             ref={el => { imageRefs.current[i] = el; }}
           />
         ))}
       </div>
+
+      {/* 图片放大预览 Modal */}
+      {previewImage && (
+        <div
+          onClick={closePreview}
+          style={{
+            position: "fixed", inset: 0, zIndex: 9999,
+            background: "rgba(0,0,0,0.85)", backdropFilter: "blur(8px)",
+            display: "flex", alignItems: "center", justifyContent: "center",
+            cursor: "zoom-out",
+          }}
+        >
+          {/* 关闭按钮 */}
+          <button
+            onClick={closePreview}
+            style={{
+              position: "absolute", top: "16px", right: "16px", zIndex: 10000,
+              width: "36px", height: "36px", borderRadius: "50%",
+              background: "rgba(255,255,255,0.15)", border: "none",
+              display: "flex", alignItems: "center", justifyContent: "center",
+              cursor: "pointer", color: "#fff",
+              transition: "background 0.2s",
+            }}
+            onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.background = "rgba(255,255,255,0.3)"; }}
+            onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.background = "rgba(255,255,255,0.15)"; }}
+          >
+            <X size={18} />
+          </button>
+
+          {/* 图片标签 */}
+          <div style={{
+            position: "absolute", top: "20px", left: "50%", transform: "translateX(-50%)",
+            background: "rgba(255,255,255,0.12)", backdropFilter: "blur(6px)",
+            borderRadius: "8px", padding: "6px 16px",
+            fontSize: "12px", color: "rgba(255,255,255,0.9)", fontFamily: zh, fontWeight: 600,
+          }}>
+            {previewImage.label}
+          </div>
+
+          {/* 大图 */}
+          <img
+            src={previewImage.url}
+            alt={previewImage.label}
+            onClick={e => e.stopPropagation()}
+            style={{
+              maxWidth: "90vw", maxHeight: "90vh",
+              objectFit: "contain", borderRadius: "4px",
+              boxShadow: "0 8px 40px rgba(0,0,0,0.5)",
+              cursor: "default",
+            }}
+          />
+
+          {/* 底部下载按钮 */}
+          <a
+            href={previewImage.url}
+            download
+            onClick={e => e.stopPropagation()}
+            style={{
+              position: "absolute", bottom: "24px", left: "50%", transform: "translateX(-50%)",
+              display: "flex", alignItems: "center", gap: "6px",
+              padding: "10px 24px", borderRadius: "8px",
+              background: "rgba(249,115,22,0.9)", border: "none",
+              fontSize: "12px", fontWeight: 600, color: "#fff",
+              fontFamily: zh, textDecoration: "none", cursor: "pointer",
+            }}
+          >
+            <Download size={14} /> 下载原图
+          </a>
+        </div>
+      )}
     </div>
   );
 }

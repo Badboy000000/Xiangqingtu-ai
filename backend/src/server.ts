@@ -102,16 +102,17 @@ async function start() {
         await sequelize.sync({ force: true });
         statusLine('📋', '表结构', `${c.red}已重建（数据已清空）${c.reset}`);
       } else {
-        // 安全模式：检测并添加缺失的列，不删数据、不重建索引
+        // 安全模式：确保表存在（不丢数据），再检测并添加缺失的列
+        await sequelize.sync();
         await safeMigrateColumns();
-        statusLine('📋', '表结构', '已检测并补全缺失列');
+        statusLine('📋', '表结构', '已确保表存在并补全缺失列');
       }
     }
 
     divider();
 
     // AI 模型状态
-    statusLine('🤖', 'LLM', 'GPT-5.5 (胜算云)', c.cyan);
+    statusLine('🤖', 'LLM', 'doubao-seed-2.0 (火山引擎)', c.cyan);
     statusLine('🎨', '图像', 'Seedream 5.0 (火山引擎)', c.cyan);
     statusLine('📁', '上传', path.resolve(config.upload.dir));
 
