@@ -1,6 +1,7 @@
 import { config } from '../config';
 import * as fs from 'fs';
 import * as path from 'path';
+import sharp from 'sharp';
 
 export interface ImageGenResult {
   url: string;
@@ -8,9 +9,12 @@ export interface ImageGenResult {
 }
 
 /**
- * 将本地图片转为 base64 data URL (用于 Seedream image 参数)
+ * 将本地图片压缩后转为 base64 data URL (用于 Seedream image 参数)
+ * - 最长边缩至 1024px（保持比例）
+ * - 输出 JPEG quality=80
+ * 原始 10-17MB 参考图可压缩至 ~100-300KB，避免 413 错误
  */
-function imageToBase64Url(filePath: string): string {
+async function imageToCompressedBase64Url(filePath: string): Promise<string> {
   if (filePath.startsWith('http')) return filePath;
 
   // 解析 /uploads/ 相对路径为绝对路径
@@ -20,14 +24,12 @@ function imageToBase64Url(filePath: string): string {
     absolutePath = path.join(uploadsDir, filePath.substring('/uploads/'.length));
   }
 
-  const ext = path.extname(absolutePath).toLowerCase().replace('.', '');
-  const mimeMap: Record<string, string> = {
-    jpg: 'image/jpeg', jpeg: 'image/jpeg',
-    png: 'image/png', webp: 'image/webp',
-  };
-  const mime = mimeMap[ext] || 'image/png';
-  const data = fs.readFileSync(absolutePath);
-  return `data:${mime};base64,${data.toString('base64')}`;
+  const compressedBuffer = await sharp(absolutePath)
+    .resize({ width: 1024, height: 1024, fit: 'inside', withoutEnlargement: true })
+    .jpeg({ quality: 80, mozjpeg: true })
+    .toBuffer();
+
+  return `data:image/jpeg;base64,${compressedBuffer.toString('base64')}`;
 }
 
 // ─── Seedream 5.0 (火山引擎) ─────────────────────────────
@@ -51,9 +53,11 @@ export async function generateWithSeedream(params: {
     watermark: params.watermark ?? false,
   };
 
-  // 参考图
+  // 参考图（压缩后再 base64 编码，避免请求体过大触发 413）
   if (params.referenceImages && params.referenceImages.length > 0) {
-    const images = params.referenceImages.map(img => imageToBase64Url(img));
+    const images = await Promise.all(
+      params.referenceImages.map(img => imageToCompressedBase64Url(img))
+    );
     body.image = images.length === 1 ? images[0] : images;
   }
 
