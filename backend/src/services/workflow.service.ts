@@ -246,13 +246,18 @@ export async function runNode3(projectId: string) {
     // 全局母提示词存入 projects 表
     await project.update({ promptGenMotherPrompt: node3Output.globalMotherPrompt });
 
+    // 检测 LLM 返回的索引基线：最小值为 0 则 0-based，否则 1-based
+    const minIndex = Math.min(...node3Output.screenPrompts.map(sp => sp.screenIndex));
+    const isZeroBased = minIndex === 0;
+    console.log(`[Node3] LLM screenIndex range: ${minIndex}~${Math.max(...node3Output.screenPrompts.map(sp => sp.screenIndex))}, isZeroBased: ${isZeroBased}`);
+
     // 每屏提示词全部字段写入 screens 表
     for (const sp of node3Output.screenPrompts) {
-      // 从 design_modules 获取 theme
-      const dm = modules.find(m => m.moduleIndex === sp.screenIndex);
+      // 归一化 screenIndex 为 0-based
+      const normalizedIndex = isZeroBased ? sp.screenIndex : sp.screenIndex - 1;
 
-      // 归一化 screenIndex 为 0-based（LLM 可能返回 1-based）
-      const normalizedIndex = sp.screenIndex >= 1 ? sp.screenIndex - 1 : sp.screenIndex;
+      // 从 design_modules 获取 theme（用归一化后的索引匹配）
+      const dm = modules.find(m => m.moduleIndex === normalizedIndex);
 
       // 所有 LLM 输出字段通过 safeStr 消毒，防止对象/数组写入 STRING/TEXT 列时报错
       const screenData = {
