@@ -7,6 +7,8 @@ import * as fs from 'fs';
 import * as path from 'path';
 import { setFirstRequestCallback } from './middleware/request-logger';
 import { initPrompts, listPrompts } from './prompts/prompt-loader';
+import { LLM_MODEL_NAME, LLM_PROVIDER_LABEL } from './adapters/llm.adapter';
+import { IMAGE_MODEL_NAME, IMAGE_PROVIDER_LABEL } from './adapters/image.adapter';
 
 // ── 确保 uploads 目录存在 ──────────────────────────────────
 const uploadDir = path.resolve(config.upload.dir);
@@ -123,9 +125,9 @@ async function start() {
       statusLine(emoji, `提示词[${p.id}]`, name, c.cyan);
     }
 
-    // AI 模型状态
-    statusLine('🤖', 'LLM', 'doubao-seed-2.0 (火山引擎)', c.cyan);
-    statusLine('🎨', '图像', 'Seedream 5.0 (火山引擎)', c.cyan);
+    // AI 模型状态（动态从 adapter 获取）
+    statusLine('🤖', 'LLM', `${LLM_MODEL_NAME} (${LLM_PROVIDER_LABEL})`, c.cyan);
+    statusLine('🎨', '图像', `${IMAGE_MODEL_NAME} (${IMAGE_PROVIDER_LABEL})`, c.cyan);
     statusLine('📁', '上传', path.resolve(config.upload.dir));
 
     divider();

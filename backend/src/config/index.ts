@@ -32,9 +32,16 @@ export const config = {
     apiKey: process.env.CHAIQUAN_LLM_API_KEY || '',
   },
 
+  // 火山引擎 ARK (已停用，保留备用)
   ark: {
     baseUrl: process.env.ARK_BASE_URL || 'https://ark.cn-beijing.volces.com/api/v3',
     apiKey: process.env.ARK_API_KEY || '',
+  },
+
+  // 阿里百炼 (qwen3.5-plus LLM + 多模态视觉理解)
+  bailian: {
+    baseUrl: process.env.BAILIAN_BASE_URL || '',
+    apiKey: process.env.BAILIAN_API_KEY || '',
   },
 
   jwt: {

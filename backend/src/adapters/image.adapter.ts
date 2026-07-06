@@ -32,6 +32,11 @@ async function imageToCompressedBase64Url(filePath: string): Promise<string> {
   return `data:image/jpeg;base64,${compressedBuffer.toString('base64')}`;
 }
 
+/** 当前图像生成模型名称（供启动日志等外部引用） */
+export const IMAGE_MODEL_NAME = 'Seedream 5.0';
+/** 当前图像生成服务平台标签 */
+export const IMAGE_PROVIDER_LABEL = '火山引擎';
+
 // ─── Seedream 5.0 (火山引擎) ─────────────────────────────
 
 /**
