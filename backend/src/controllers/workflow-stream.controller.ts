@@ -188,52 +188,82 @@ export async function streamWorkflow(
       throw err;
     }
 
-    // ── 节点4: 逐屏生图（直接使用节点3的 prompt + 参考图） ──
-    sse.sendProgress('node4', 80, '正在生成图片...');
-    console.log(`[Workflow] Starting Node 4 image generation for project ${projectId}`);
-
     // 获取所有屏信息
     const allScreens = await Screen.findAll({
       where: { projectId },
       order: [['screenIndex', 'ASC']],
     });
 
-    for (let i = 0; i < allScreens.length; i++) {
-      if (sse.closed) break;
+    // ── 节点4: 池化并发生图（最多5路并行，按完成顺序推送） ──
+    const CONCURRENCY_LIMIT = 5;
+    sse.sendProgress('node4', 80, '正在生成图片...');
+    console.log(`[Workflow] Starting Node 4 pooled image generation (${allScreens.length} screens, concurrency=${CONCURRENCY_LIMIT}) for project ${projectId}`);
 
-      sse.sendProgress('node4', 80 + Math.floor(((i) / allScreens.length) * 19),
-        `正在生成第 ${i + 1}/${allScreens.length} 屏图片...`);
-      console.log(`[Workflow] Generating image for screen ${i} of project ${projectId}`);
+    // 串行化 SSE 写操作，防止并发 res.write 数据交错
+    let sseWriteChain: Promise<void> = Promise.resolve();
+    const safeSend = (data: any) => {
+      sseWriteChain = sseWriteChain.then(() => {
+        if (sse && !sse.closed) sse.send(data);
+      });
+    };
 
-      try {
-        const result = await runNode4(projectId, allScreens[i].screenIndex);
+    let node4Completed = 0;
+    const totalScreens = allScreens.length;
+    const results: Array<{ index: number; status: 'fulfilled' | 'rejected' }> = [];
 
-        sse.send({
-          type: 'node4_screen',
-          data: {
-            screenIndex: i,  // 使用 0-based 索引，与前端 screens 数组下标一致
-            imageUrl: result.imageUrl,
-            total: allScreens.length,
-          },
-          timestamp: Date.now(),
-        });
-
-        console.log(`[Workflow] Screen ${i} image generated for project ${projectId}`);
-      } catch (err: any) {
-        console.error(`[Workflow] Screen ${i} image generation failed for project ${projectId}:`, err);
-        sse.send({
-          type: 'node4_screen_error',
-          data: {
-            screenIndex: i,  // 使用 0-based 索引，与前端 screens 数组下标一致
-            error: err.message || `第${i + 1}屏生图失败`,
-          },
-          timestamp: Date.now(),
-        });
+    // Worker pool：启动 min(并发上限, 屏数) 个 worker，每个 worker 循环取下一个任务
+    let nextIndex = 0;
+    const processNext = async () => {
+      while (nextIndex < allScreens.length) {
+        const i = nextIndex++;
+        const screen = allScreens[i];
+        console.log(`[Workflow] Launching image generation for screen ${i} of project ${projectId}`);
+        try {
+          const result = await runNode4(projectId, screen.screenIndex);
+          console.log(`[Workflow] Screen ${i} image generated for project ${projectId}`);
+          node4Completed++;
+          results.push({ index: i, status: 'fulfilled' });
+          safeSend({
+            type: 'node4_screen',
+            data: { screenIndex: i, imageUrl: result.imageUrl, total: totalScreens },
+            timestamp: Date.now(),
+          });
+          safeSend({
+            type: 'progress',
+            data: {
+              node: 'node4',
+              percent: 80 + Math.floor((node4Completed / totalScreens) * 19),
+              message: `已生成 ${node4Completed}/${totalScreens} 屏图片`,
+            },
+            timestamp: Date.now(),
+          });
+        } catch (err: any) {
+          console.error(`[Workflow] Screen ${i} image generation failed for project ${projectId}:`, err);
+          node4Completed++;
+          results.push({ index: i, status: 'rejected' });
+          safeSend({
+            type: 'node4_screen_error',
+            data: { screenIndex: i, error: err.message || `第${i + 1}屏生图失败` },
+            timestamp: Date.now(),
+          });
+        }
       }
+    };
+
+    const workerCount = Math.min(CONCURRENCY_LIMIT, totalScreens);
+    const workers: Promise<void>[] = [];
+    for (let w = 0; w < workerCount; w++) {
+      workers.push(processNext());
     }
+    await Promise.all(workers);
+
+    // 等待所有 SSE 写操作刷新完毕
+    await sseWriteChain;
+
+    const successCount = results.filter(r => r.status === 'fulfilled').length;
+    console.log(`[Workflow] Node 4 pooled generation done: ${successCount}/${totalScreens} succeeded for project ${projectId}`);
 
     sse.sendProgress('node4', 100, '工作流执行完成');
-    console.log(`[Workflow] Node 4 image generation completed for project ${projectId}`);
 
     // 发送完成消息
     sse.send({
