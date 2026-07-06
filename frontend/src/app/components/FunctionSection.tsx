@@ -41,6 +41,8 @@ export function FunctionSection() {
   // 表单状态
   const [productName, setProductName] = useState('');
   const [sellingPoints, setSellingPoints] = useState('');
+  const [productSpecs, setProductSpecs] = useState('');
+  const [material, setMaterial] = useState('');
   const [targetAudience, setTargetAudience] = useState('');
   const [priceRange, setPriceRange] = useState('');
   const [designRequirements, setDesignRequirements] = useState('');
@@ -103,6 +105,9 @@ export function FunctionSection() {
         designRequirements,
         referenceImages: compressedFiles,
         screenCount,
+        material,
+        productSpecs,
+        language: platform === 'overseas' ? 'en' : 'zh-CN',
       };
       
       console.log('[FunctionSection] Creating project with params:', params);
@@ -380,20 +385,36 @@ export function FunctionSection() {
           </Field>
 
           {/* Core selling points */}
-          <Field label="核心卖点">
+          <Field label="核心卖点（每行一条）">
             <textarea
               value={sellingPoints}
               onChange={(e) => setSellingPoints(e.target.value)}
-              placeholder="如：行业顶级降噪、30小时续航、轻盈佩戴设计..."
-              rows={3}
+              placeholder="如：
+行业顶级降噪，40dB 主动降噪深度
+30小时超长续航，快充10分钟听歌5小时
+轻盈佩戴设计，仅重 250g"
+              rows={4}
               style={{ ...baseInput, resize: "vertical", lineHeight: 1.6 }}
               onFocus={focusIn}
               onBlur={focusOut}
             />
           </Field>
 
-          {/* Target audience + price range + screen count */}
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: "12px" }}>
+          {/* Product specs */}
+          <Field label="产品规格参数">
+            <textarea
+              value={productSpecs}
+              onChange={(e) => setProductSpecs(e.target.value)}
+              placeholder="如：尺寸 185×170×78mm、重量 250g、蓝牙 5.3、续航 30h、充电接口 USB-C..."
+              rows={2}
+              style={{ ...baseInput, resize: "vertical", lineHeight: 1.6 }}
+              onFocus={focusIn}
+              onBlur={focusOut}
+            />
+          </Field>
+
+          {/* Target audience + price range + material + screen count */}
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "12px" }}>
             <Field label="目标人群">
               <input
                 type="text"
@@ -411,6 +432,19 @@ export function FunctionSection() {
                 value={priceRange}
                 onChange={(e) => setPriceRange(e.target.value)}
                 placeholder="如：¥1,999 - ¥2,499"
+                style={baseInput}
+                onFocus={focusIn}
+                onBlur={focusOut}
+              />
+            </Field>
+          </div>
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "12px" }}>
+            <Field label="材质">
+              <input
+                type="text"
+                value={material}
+                onChange={(e) => setMaterial(e.target.value)}
+                placeholder="如：头层牛皮、304不锈钢、纯棉..."
                 style={baseInput}
                 onFocus={focusIn}
                 onBlur={focusOut}

@@ -22,22 +22,25 @@ export interface ProductInfo {
   referenceStyle?: string;    // 参考风格
   language?: string;          // 语种
   screenCount?: number;       // 分屏数量（默认8，可自定义4-12）
+  material?: string;          // 材质
+  productSpecs?: string;      // 产品规格参数
 }
 
 export interface Node1Output {
   basicInfo: {
-    name: string;
-    category: string;           // 品类/平台/语种
+    name: string;               // 商品名（≤15字）
+    category: string;           // 品类/子品类
+    platform: string;           // domestic | overseas
+    language: string;           // zh-CN | en（决定画面文字语种）
     crowdSceneStyle: string;    // 人群/场景/参考风格
-    platform: string;
-    language: string;
   };
   productCore: {
-    coreContent: string;            // 核心内容（购买理由、卖点含义、痛点、收益、场景、使用方式）
-    productFacts: string[];         // 商品事实（规格/材质/尺寸/容量/配件/认证/包装等）
-    visualEvidence: string[];       // 视觉依据（外观/结构/材质纹理/颜色/按钮接口/配件组合）
-    brandVisualGene: string;        // 品牌视觉基因（主色辅色/字形气质/图形元素/圆角直角倾向等）
-    packagingAppearance: string;    // 包装外观（包装形态/标签/开合/配件清单/容量尺寸参照）
+    sellingPoints: string[];      // 用户提供卖点（原文保留，禁止改写）
+    coreContent: string;          // 核心购买理由概述
+    productFacts: string[];       // 规格/材质/尺寸/容量/配件/认证/包装等强事实
+    visualEvidence: string[];     // 外观/结构/材质纹理/颜色/按钮接口/配件组合
+    brandVisualGene: string;      // 品牌视觉基因（主色辅色/字形气质/图形元素/圆角直角倾向等）
+    packagingAppearance: string;  // 包装外观（包装形态/标签/开合/配件清单/容量尺寸参照）
     actionPropSuggestions: string[]; // 动作/道具建议
     complianceBoundary: string[];   // 合规边界
     infoGaps: string[];             // 信息缺口
@@ -150,6 +153,8 @@ export interface CreateProjectRequest {
   referenceStyle?: string;
   language?: string;
   screenCount?: number;       // 分屏数量（默认8，可自定义4-12）
+  material?: string;          // 材质
+  productSpecs?: string;      // 产品规格参数
 }
 
 export interface ReviseScreenRequest {

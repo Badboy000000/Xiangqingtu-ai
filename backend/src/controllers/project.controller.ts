@@ -13,7 +13,7 @@ export async function createProject(req: AuthRequest, res: Response, next: NextF
   try {
     if (!req.userId) throw new AppError('请先登录', 401);
 
-    const { name, platform, sellingPoints, targetAudience, priceRange, designRequirements, category, referenceStyle, language, screenCount } = req.body;
+    const { name, platform, sellingPoints, targetAudience, priceRange, designRequirements, category, referenceStyle, language, screenCount, material, productSpecs } = req.body;
 
     // 处理上传的参考图
     const projectId = req.projectId!;
@@ -23,6 +23,9 @@ export async function createProject(req: AuthRequest, res: Response, next: NextF
         referenceImageUrls.push(`/uploads/${projectId}/${file.filename}`);
       }
     }
+
+    // 自动语言逻辑：根据平台自动设定语种
+    const resolvedLanguage = language || (platform === 'overseas' ? 'en' : 'zh-CN');
 
     const project = await Project.create({
       id: projectId,
@@ -39,7 +42,9 @@ export async function createProject(req: AuthRequest, res: Response, next: NextF
       category: category || '',
       referenceStyle: referenceStyle || '',
       referenceImageUrls,
-      language: language || 'zh-CN',
+      language: resolvedLanguage,
+      material: material || '',
+      productSpecs: productSpecs || '',
     });
 
     res.json({ success: true, data: project.toJSON() });

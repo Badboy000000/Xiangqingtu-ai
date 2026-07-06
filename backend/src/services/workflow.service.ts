@@ -31,6 +31,8 @@ export async function runNode1(projectId: string) {
     category: project.category,
     referenceStyle: project.referenceStyle,
     language: project.language,
+    material: project.material,
+    productSpecs: project.productSpecs,
   };
 
   await project.update({ status: 'analyzing' });

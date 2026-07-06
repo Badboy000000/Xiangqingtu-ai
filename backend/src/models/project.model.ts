@@ -22,6 +22,8 @@ interface ProjectAttributes {
   category: string;                // 品类（如：家居日用/厨房餐厨）
   referenceStyle: string;          // 参考风格描述
   referenceImageUrls: string[];    // 参考图本地路径数组
+  material: string;                // 材质
+  productSpecs: string;            // 产品规格参数
   // ── 四节点全局输出（复杂嵌套结构保留 JSON / LONGTEXT）──
   infoAnalysisResult: Node1Output | null;              // 节点1: 信息整理结果（basicInfo + productCore）
   designPlanResult: Node2OutputGlobal | null;          // 节点2: 设计规划全局结果（overallStyle + globalVisualSystem + complianceRules）
@@ -33,7 +35,7 @@ interface ProjectAttributes {
 
 interface ProjectCreationAttributes extends Optional<ProjectAttributes,
   'id' | 'status' | 'screenCount' | 'sellingPoints' | 'targetAudience' | 'priceRange' |
-  'designRequirements' | 'category' | 'referenceStyle' | 'referenceImageUrls' |
+  'designRequirements' | 'category' | 'referenceStyle' | 'referenceImageUrls' | 'material' | 'productSpecs' |
   'infoAnalysisResult' | 'designPlanResult' | 'promptGenMotherPrompt' | 'jointGenInstruction' | 'language'
 > {}
 
@@ -52,6 +54,8 @@ export class Project extends Model<ProjectAttributes, ProjectCreationAttributes>
   declare category: string;
   declare referenceStyle: string;
   declare referenceImageUrls: string[];
+  declare material: string;
+  declare productSpecs: string;
   declare infoAnalysisResult: Node1Output | null;
   declare designPlanResult: Node2OutputGlobal | null;
   declare promptGenMotherPrompt: string | null;
@@ -142,6 +146,18 @@ Project.init(
       defaultValue: '',
       field: 'reference_style',
       comment: '参考风格描述',
+    },
+    material: {
+      type: DataTypes.STRING(255),
+      allowNull: true,
+      field: 'material',
+      comment: '材质（如：304不锈钢、头层牛皮、纯棉等）',
+    },
+    productSpecs: {
+      type: DataTypes.TEXT,
+      allowNull: true,
+      field: 'product_specs',
+      comment: '产品规格参数（如：尺寸、容量、功率、重量等）',
     },
     referenceImageUrls: {
       type: DataTypes.JSON,

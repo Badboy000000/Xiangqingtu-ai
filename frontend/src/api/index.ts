@@ -44,6 +44,8 @@ export interface CreateProjectParams {
   referenceStyle?: string;
   language?: string;
   screenCount?: number;
+  material?: string;       // 材质
+  productSpecs?: string;   // 产品规格参数
 }
 
 export async function createProject(params: CreateProjectParams) {
@@ -57,6 +59,8 @@ export async function createProject(params: CreateProjectParams) {
   if (params.category) formData.append('category', params.category);
   if (params.referenceStyle) formData.append('referenceStyle', params.referenceStyle);
   if (params.language) formData.append('language', params.language);
+  if (params.material) formData.append('material', params.material);
+  if (params.productSpecs) formData.append('productSpecs', params.productSpecs);
   formData.append('screenCount', String(params.screenCount || 8));
   params.referenceImages.forEach((file) => {
     formData.append('referenceImages', file);

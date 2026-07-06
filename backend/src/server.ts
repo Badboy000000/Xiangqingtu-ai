@@ -6,6 +6,7 @@ import './models';
 import * as fs from 'fs';
 import * as path from 'path';
 import { setFirstRequestCallback } from './middleware/request-logger';
+import { initPrompts, listPrompts } from './prompts/prompt-loader';
 
 // ── 确保 uploads 目录存在 ──────────────────────────────────
 const uploadDir = path.resolve(config.upload.dir);
@@ -65,6 +66,8 @@ async function safeMigrateColumns() {
     { table: 'projects', column: 'reference_style', sql: "VARCHAR(255) NOT NULL DEFAULT ''" },
     { table: 'projects', column: 'reference_image_urls', sql: 'JSON NULL DEFAULT NULL' },
     { table: 'projects', column: 'language', sql: "VARCHAR(20) NOT NULL DEFAULT 'zh-CN'" },
+    { table: 'projects', column: 'material', sql: 'VARCHAR(255) NULL' },
+    { table: 'projects', column: 'product_specs', sql: 'TEXT NULL' },
   ];
 
   for (const col of columns) {
@@ -110,6 +113,15 @@ async function start() {
     }
 
     divider();
+
+    // 预加载提示词
+    initPrompts();
+    const prompts = listPrompts();
+    for (const p of prompts) {
+      const emoji = p.meta.emoji || '📝';
+      const name = p.meta.name || p.id;
+      statusLine(emoji, `提示词[${p.id}]`, name, c.cyan);
+    }
 
     // AI 模型状态
     statusLine('🤖', 'LLM', 'doubao-seed-2.0 (火山引擎)', c.cyan);

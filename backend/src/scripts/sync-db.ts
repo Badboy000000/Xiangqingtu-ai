@@ -43,6 +43,8 @@ const REQUIRED_COLUMNS: ColumnDef[] = [
   { table: 'projects', column: 'reference_style', sqlType: 'VARCHAR(255)', nullable: false, defaultValue: "''" },
   { table: 'projects', column: 'reference_image_urls', sqlType: 'JSON', nullable: true },
   { table: 'projects', column: 'language', sqlType: 'VARCHAR(20)', nullable: false, defaultValue: "'zh-CN'" },
+  { table: 'projects', column: 'material', sqlType: 'VARCHAR(255)', nullable: true },
+  { table: 'projects', column: 'product_specs', sqlType: 'TEXT', nullable: true },
 ];
 
 async function getExistingColumns(tableName: string): Promise<Set<string>> {
