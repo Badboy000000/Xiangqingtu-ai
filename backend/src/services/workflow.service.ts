@@ -10,6 +10,41 @@ import { AppError } from '../middleware/error-handler';
 import type { ProductInfo, ExportFormat, ExportQuality, Node2OutputGlobal } from '../types';
 
 /**
+ * LLM 输出消毒工具：确保任何字段值都能安全写入 STRING/TEXT 列
+ * - 字符串 → 原样返回
+ * - 数组 → 智能拼接（字符串元素用 ; 分隔，对象元素 JSON.stringify）
+ * - 对象 → JSON.stringify
+ * - null/undefined → fallback 默认值
+ * - 数字/布尔 → String()
+ */
+function safeStr(value: unknown, fallback: string = ''): string {
+  if (value === null || value === undefined) return fallback;
+  if (typeof value === 'string') return value;
+  if (typeof value === 'number' || typeof value === 'boolean') return String(value);
+  if (Array.isArray(value)) {
+    return value
+      .map(item =>
+        typeof item === 'string' ? item :
+        (item !== null && item !== undefined) ? JSON.stringify(item) : ''
+      )
+      .filter(Boolean)
+      .join('; ');
+  }
+  if (typeof value === 'object') {
+    // 常见结构化对象智能拼接（如 { title, sub, tags }）
+    const obj = value as Record<string, unknown>;
+    const parts: string[] = [];
+    if (obj.title) parts.push(String(obj.title));
+    if (obj.sub) parts.push(String(obj.sub));
+    if (Array.isArray(obj.tags)) parts.push(obj.tags.join(', '));
+    if (parts.length > 0) return parts.join(' | ');
+    // 其他对象直接序列化
+    return JSON.stringify(value);
+  }
+  return fallback;
+}
+
+/**
  * 节点1: 信息整理
  * 输出存入 projects.info_analysis_result
  */
@@ -76,7 +111,65 @@ export async function runNode2(projectId: string) {
   await project.update({ status: 'planning' });
 
   try {
-    const node2Output = await generateDesignPlan(project.infoAnalysisResult, project.screenCount);
+    let node2Output = await generateDesignPlan(project.infoAnalysisResult, project.screenCount);
+
+    // 防御性处理：LLM 可能包装在额外 key 中
+    if (node2Output && (node2Output as any).designPlan) {
+      console.warn('[Node2] Result is wrapped in designPlan, unwrapping');
+      node2Output = (node2Output as any).designPlan;
+    }
+
+    // 防御性处理：LLM 可能用 screens 代替 modules
+    if (!node2Output.modules && (node2Output as any).screens) {
+      console.warn('[Node2] LLM used "screens" instead of "modules", mapping fields');
+      const screens = (node2Output as any).screens as any[];
+      node2Output.modules = screens.map((s: any, i: number) => ({
+        index: s.index ?? i,
+        theme: s.theme || s.role || `模块${i}`,
+        actualImageType: s.actualImageType || '全幅主图',
+        coreVisual: s.coreVisual || s.goal || '',
+        bgStyle: s.bgStyle || '',
+        visualStrategy: s.visualStrategy || s.visual || '',
+        characterPropSuggestions: s.characterPropSuggestions || '无',
+        platformRules: s.platformRules || '',
+        textDirection: s.textDirection || (s.copy ? `${s.copy.title}${s.copy.sub ? ' ' + s.copy.sub : ''}` : ''),
+        productAngle: s.productAngle || '正面平视',
+        coordination: s.coordination || '',
+      }));
+    }
+
+    // 防御性处理：LLM 可能用 style 代替 globalVisualSystem
+    if (!node2Output.globalVisualSystem && (node2Output as any).style) {
+      console.warn('[Node2] LLM used "style" instead of "globalVisualSystem", mapping fields');
+      const style = (node2Output as any).style;
+      node2Output.globalVisualSystem = {
+        bgColor: style.bgColor || style.palette || '',
+        mainColor: style.mainColor || style.palette || '',
+        accentColor: style.accentColor || '',
+        highlightColor: style.highlightColor || '',
+        colorRatio: style.colorRatio || '',
+        artStyle: style.artStyle || style.mood || '',
+        lighting: style.lighting || '',
+        rendering: style.rendering || '',
+        titleFont: style.titleFont || style.fontVibe || '',
+        bodyFont: style.bodyFont || style.fontVibe || '',
+        titlePlacement: style.titlePlacement || '',
+        fontColorCount: style.fontColorCount || '',
+        cardStyle: style.cardStyle || '',
+        cornerLineStyle: style.cornerLineStyle || '',
+        whitespace: style.whitespace || '',
+        hierarchy: style.hierarchy || '',
+        categoryAtmosphere: style.categoryAtmosphere || '',
+      };
+    }
+
+    console.log('[Node2] Output keys:', Object.keys(node2Output));
+    console.log('[Node2] Has modules:', Array.isArray(node2Output.modules), 'Count:', node2Output.modules?.length ?? 0);
+    console.log('[Node2] Has globalVisualSystem:', !!node2Output.globalVisualSystem);
+
+    if (!Array.isArray(node2Output.modules)) {
+      throw new AppError(`Node2 LLM 输出结构异常：缺少 modules 数组。实际 keys: ${Object.keys(node2Output).join(', ')}`, 500);
+    }
 
     // 全局部分存入 projects 表
     const designPlanResult: Node2OutputGlobal = {
@@ -86,23 +179,23 @@ export async function runNode2(projectId: string) {
     };
     await project.update({ designPlanResult, status: 'uploaded' });
 
-    // modules 拆入 design_modules 表
+    // modules 拆入 design_modules 表（所有字段通过 safeStr 消毒，防止 LLM 输出对象/数组导致写入失败）
     await DesignModule.destroy({ where: { projectId } }); // 清理旧数据
     for (const m of node2Output.modules) {
       await DesignModule.create({
         id: uuidv4(),
         projectId,
-        moduleIndex: m.index,
-        theme: m.theme,
-        actualImageType: m.actualImageType,
-        coreVisual: m.coreVisual,
-        bgStyle: m.bgStyle,
-        visualStrategy: m.visualStrategy,
-        characterPropSuggestions: m.characterPropSuggestions,
-        platformRules: m.platformRules,
-        textDirection: m.textDirection,
-        productAngle: m.productAngle,
-        coordination: m.coordination,
+        moduleIndex: typeof m.index === 'number' ? m.index : node2Output.modules.indexOf(m),
+        theme: safeStr(m.theme, `模块${node2Output.modules.indexOf(m)}`),
+        actualImageType: safeStr(m.actualImageType, '全幅主图'),
+        coreVisual: safeStr(m.coreVisual),
+        bgStyle: safeStr(m.bgStyle),
+        visualStrategy: safeStr(m.visualStrategy),
+        characterPropSuggestions: safeStr(m.characterPropSuggestions, '无'),
+        platformRules: safeStr(m.platformRules),
+        textDirection: safeStr(m.textDirection),
+        productAngle: safeStr(m.productAngle, '正面平视'),
+        coordination: safeStr(m.coordination),
       });
     }
 
@@ -161,45 +254,38 @@ export async function runNode3(projectId: string) {
       // 归一化 screenIndex 为 0-based（LLM 可能返回 1-based）
       const normalizedIndex = sp.screenIndex >= 1 ? sp.screenIndex - 1 : sp.screenIndex;
 
+      // 所有 LLM 输出字段通过 safeStr 消毒，防止对象/数组写入 STRING/TEXT 列时报错
+      const screenData = {
+        label: safeStr(sp.label, `屏${normalizedIndex + 1}`),
+        theme: dm?.theme || '',
+        prompt: safeStr(sp.prompt),
+        generationGoal: safeStr(sp.generationGoal),
+        coreVisual: safeStr(sp.coreVisual),
+        compositionStrategy: safeStr(sp.compositionStrategy),
+        subjectProps: safeStr(sp.subjectProps),
+        bgStyle: safeStr(sp.bgStyle),
+        textCarrierLevel: safeStr(sp.textCarrierLevel),
+        productAngle: safeStr(sp.productAngle),
+        consistencyConstraints: safeStr(sp.consistencyConstraints),
+        platformRules: safeStr(sp.platformRules),
+        outputRequirements: safeStr(sp.outputRequirements),
+      };
+
       const [screen] = await Screen.findOrCreate({
         where: { projectId, screenIndex: normalizedIndex },
         defaults: {
           id: uuidv4(),
           projectId,
           screenIndex: normalizedIndex,
-          label: sp.label,
-          theme: dm?.theme || '',
+          ...screenData,
           status: 'prompt_ready',
-          prompt: sp.prompt,
-          generationGoal: sp.generationGoal,
-          coreVisual: sp.coreVisual,
-          compositionStrategy: sp.compositionStrategy,
-          subjectProps: sp.subjectProps,
-          bgStyle: sp.bgStyle,
-          textCarrierLevel: sp.textCarrierLevel,
-          productAngle: sp.productAngle,
-          consistencyConstraints: sp.consistencyConstraints,
-          platformRules: sp.platformRules,
-          outputRequirements: sp.outputRequirements,
         },
       });
 
       // 如果已存在，更新所有字段
       if (screen.status === 'waiting' || !screen.prompt) {
         await screen.update({
-          label: sp.label,
-          theme: dm?.theme || '',
-          prompt: sp.prompt,
-          generationGoal: sp.generationGoal,
-          coreVisual: sp.coreVisual,
-          compositionStrategy: sp.compositionStrategy,
-          subjectProps: sp.subjectProps,
-          bgStyle: sp.bgStyle,
-          textCarrierLevel: sp.textCarrierLevel,
-          productAngle: sp.productAngle,
-          consistencyConstraints: sp.consistencyConstraints,
-          platformRules: sp.platformRules,
-          outputRequirements: sp.outputRequirements,
+          ...screenData,
           status: 'prompt_ready',
         });
       }
