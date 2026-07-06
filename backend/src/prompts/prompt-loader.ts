@@ -63,7 +63,9 @@ const metaCache = new Map<string, PromptMeta>();
  * 从 .md 文件内容中提取 YAML Frontmatter 元数据
  */
 function parseFrontmatter(content: string): { meta: PromptMeta; body: string } {
-  const match = content.match(/^---\n([\s\S]*?)\n---\n?([\s\S]*)$/);
+  // 兼容 Windows CRLF 换行
+  const normalized = content.replace(/\r\n/g, '\n');
+  const match = normalized.match(/^---\n([\s\S]*?)\n---\n?([\s\S]*)$/);
   if (!match) return { meta: {}, body: content };
 
   const meta: PromptMeta = {};
