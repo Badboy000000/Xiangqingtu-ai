@@ -44,6 +44,13 @@ export const config = {
     apiKey: process.env.BAILIAN_API_KEY || '',
   },
 
+  // 阿里百炼图像生成 (qwen-image-2.0 系列)
+  bailianImage: {
+    baseUrl: process.env.BAILIAN_IMAGE_BASE_URL || '',
+    apiKey: process.env.BAILIAN_IMAGE_API_KEY || process.env.BAILIAN_API_KEY || '',
+    model: process.env.BAILIAN_IMAGE_MODEL || 'qwen-image-2.0-2026-03-03',
+  },
+
   jwt: {
     secret: process.env.JWT_SECRET || 'ecommerce-detail-jwt-secret',
     expiresIn: process.env.JWT_EXPIRES_IN || '7d',

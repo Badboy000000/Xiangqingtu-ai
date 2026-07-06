@@ -9,7 +9,7 @@ export interface ImageGenResult {
 }
 
 /**
- * 将本地图片压缩后转为 base64 data URL (用于 Seedream image 参数)
+ * 将本地图片压缩后转为 base64 data URL (用于生图模型的 image 参数)
  * - 最长边缩至 1024px（保持比例）
  * - 输出 JPEG quality=80
  * 原始 10-17MB 参考图可压缩至 ~100-300KB，避免 413 错误
@@ -33,14 +33,116 @@ async function imageToCompressedBase64Url(filePath: string): Promise<string> {
 }
 
 /** 当前图像生成模型名称（供启动日志等外部引用） */
-export const IMAGE_MODEL_NAME = 'Seedream 5.0';
+export const IMAGE_MODEL_NAME = process.env.BAILIAN_IMAGE_MODEL || 'qwen-image-2.0-2026-03-03';
 /** 当前图像生成服务平台标签 */
-export const IMAGE_PROVIDER_LABEL = '火山引擎';
+export const IMAGE_PROVIDER_LABEL = '阿里百炼';
 
-// ─── Seedream 5.0 (火山引擎) ─────────────────────────────
+// ─── 阿里百炼 qwen-image (同步 API) ────────────────────
 
 /**
- * Seedream 5.0 文生图 / 图生图
+ * 阿里百炼 qwen-image-2.0 系列 文生图 / 图生图（同步调用）
+ *
+ * API 协议与 OpenAI 不同：
+ *   - 端点：POST {baseUrl}/generation
+ *   - 请求体：{ model, input: { messages: [{ role, content }] }, parameters: { size, n, watermark } }
+ *   - 响应体：{ output: { choices: [{ message: { content: [{ image, type }] } }] } }
+ *
+ * @see https://help.aliyun.com/zh/model-studio/qwen-image-edit-guide
+ */
+export async function generateWithQwenImage(params: {
+  prompt: string;
+  referenceImages?: string[];  // 本地路径或 URL（最多 9 张）
+  size?: string;               // 如 "1024*1792" (9:16) 或 "2K"
+  n?: number;                  // 生成张数，最多 6
+  watermark?: boolean;
+}): Promise<ImageGenResult[]> {
+  // 构建 content 数组：参考图在前，文本在后（百炼要求多图时按数组顺序定义）
+  const content: Array<Record<string, string>> = [];
+
+  // 参考图（压缩后再 base64 编码，避免请求体过大）
+  if (params.referenceImages && params.referenceImages.length > 0) {
+    const images = await Promise.all(
+      params.referenceImages.map(img => imageToCompressedBase64Url(img))
+    );
+    images.forEach((img) => {
+      content.push({ image: img });
+    });
+  }
+
+  // 文本提示词
+  content.push({ text: params.prompt });
+
+  const body = {
+    model: config.bailianImage.model,
+    input: {
+      messages: [
+        {
+          role: 'user',
+          content,
+        },
+      ],
+    },
+    parameters: {
+      size: params.size || '1024*1792',   // 9:16 ratio ≈ 750:1500
+      n: params.n || 1,
+      watermark: params.watermark ?? false,
+    },
+  };
+
+  const response = await fetch(`${config.bailianImage.baseUrl}/generation`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'Authorization': `Bearer ${config.bailianImage.apiKey}`,
+    },
+    body: JSON.stringify(body),
+  });
+
+  if (!response.ok) {
+    const errText = await response.text();
+    throw new Error(`阿里百炼 qwen-image 生成失败: ${response.status} - ${errText}`);
+  }
+
+  const data = await response.json() as {
+    output: {
+      choices: Array<{
+        finish_reason: string;
+        message: {
+          role: string;
+          content: Array<{ image?: string; type?: string; text?: string }>;
+        };
+      }>;
+    };
+    request_id?: string;
+    code?: string;
+    message?: string;
+  };
+
+  // 百炼同步调用可能返回业务错误（无 choices）
+  if (data.code) {
+    throw new Error(`阿里百炼 qwen-image 业务错误: ${data.code} - ${data.message}`);
+  }
+
+  const imageUrls: string[] = [];
+  for (const choice of data.output.choices) {
+    for (const item of choice.message.content) {
+      // 百炼实际响应中可能没有 type 字段，直接检查 image 是否存在
+      if (item.image) {
+        imageUrls.push(item.image);
+      }
+    }
+  }
+
+  return imageUrls.map(url => ({ url }));
+}
+
+// ──────────────────────────────────────────────────────
+// 以下为 Seedream (火山引擎) 方案（已停用，保留备用）
+// 若需切换回 Seedream，在 service 层切换调用即可
+// ──────────────────────────────────────────────────────
+
+/**
+ * Seedream 5.0 文生图 / 图生图（已停用，保留备用）
  */
 export async function generateWithSeedream(params: {
   prompt: string;

@@ -1,7 +1,7 @@
 import * as fs from 'fs';
 import * as path from 'path';
 import { config } from '../config';
-import { generateWithSeedream, generateWithGPTImage2 } from '../adapters/image.adapter';
+import { generateWithSeedream, generateWithGPTImage2, generateWithQwenImage } from '../adapters/image.adapter';
 import type { ImageGenResult } from '../adapters/image.adapter';
 
 /**
@@ -43,9 +43,45 @@ async function downloadImage(params: {
 }
 
 /**
- * 节点4: 单屏生图（Seedream 5.0）
+ * 节点4: 单屏生图（主方案：阿里百炼 qwen-image-2.0）
  */
 export async function generateScreenImage(params: {
+  prompt: string;
+  referenceImages?: string[];
+  screenIndex: number;
+  projectId: string;
+  screenLabel: string;
+  versionNumber: number;
+}): Promise<{ imageUrl: string; originalUrl: string }> {
+  const results: ImageGenResult[] = await generateWithQwenImage({
+    prompt: params.prompt,
+    referenceImages: params.referenceImages,
+    size: '1024*1792', // 9:16 ratio ≈ 750:1500
+    watermark: false,
+  });
+
+  if (!results.length || !results[0].url) {
+    throw new Error('图像生成返回空结果');
+  }
+
+  // 下载图片到本地项目子目录
+  const localPath = await downloadImage({
+    url: results[0].url,
+    projectId: params.projectId,
+    screenLabel: params.screenLabel,
+    versionNumber: params.versionNumber,
+  });
+
+  return {
+    imageUrl: localPath,
+    originalUrl: results[0].url,
+  };
+}
+
+/**
+ * 备选方案 A: Seedream 5.0 生图（火山引擎，已停用，保留备用）
+ */
+export async function generateScreenImageSeedream(params: {
   prompt: string;
   referenceImages?: string[];
   screenIndex: number;
@@ -62,10 +98,9 @@ export async function generateScreenImage(params: {
   });
 
   if (!results.length || !results[0].url) {
-    throw new Error('图像生成返回空结果');
+    throw new Error('Seedream 图像生成返回空结果');
   }
 
-  // 下载图片到本地项目子目录
   const localPath = await downloadImage({
     url: results[0].url,
     projectId: params.projectId,
@@ -112,9 +147,10 @@ export async function generateScreenImageFallback(params: {
 }
 
 /**
- * 智能生图：Seedream 优先，内容审核不通过时自动切换 GPT Image 2
- * - Seedream 便宜快速，但内容审核严格（品牌名/功效词易触发 400）
- * - GPT Image 2 对正常商业内容更宽松，作为兜底方案
+ * 智能生图：qwen-image 优先，失败时自动降级 Seedream → GPT Image 2
+ * - qwen-image 为主方案，内容审核相对宽松
+ * - Seedream 为备选 A（需切换时可用）
+ * - GPT Image 2 为备选 B（柴犬平台）
  */
 export async function generateScreenImageSmart(params: {
   prompt: string;
@@ -125,31 +161,29 @@ export async function generateScreenImageSmart(params: {
   versionNumber: number;
 }): Promise<{ imageUrl: string; originalUrl: string }> {
   try {
-    console.log(`[Node4] 屏${params.screenIndex} 尝试 Seedream 5.0 生图...`);
+    console.log(`[Node4] 屏${params.screenIndex} 尝试阿里百炼 qwen-image 生图...`);
     const result = await generateScreenImage(params);
-    console.log(`[Node4] 屏${params.screenIndex} Seedream 生图成功`);
+    console.log(`[Node4] 屏${params.screenIndex} qwen-image 生图成功`);
     return result;
   } catch (err: any) {
     const errMsg = err.message || '';
-    // 检测 Seedream 内容安全审核 (400 + InputTextSensitiveContentDetected)
-    const isSensitiveError = errMsg.includes('400') && errMsg.includes('InputTextSensitiveContentDetected');
-    if (!isSensitiveError) {
-      // 非审核相关错误，直接抛出
-      throw err;
+    console.warn(`[Node4] 屏${params.screenIndex} qwen-image 失败: ${errMsg}`);
+
+    // 尝试 GPT Image 2 兆底
+    try {
+      console.warn(`[Node4] 屏${params.screenIndex} 自动切换 GPT Image 2 重试...`);
+      const result = await generateScreenImageFallback({
+        prompt: params.prompt,
+        screenIndex: params.screenIndex,
+        projectId: params.projectId,
+        screenLabel: params.screenLabel,
+        versionNumber: params.versionNumber,
+      });
+      console.log(`[Node4] 屏${params.screenIndex} GPT Image 2 生图成功`);
+      return result;
+    } catch (fallbackErr: any) {
+      console.error(`[Node4] 屏${params.screenIndex} GPT Image 2 也失败: ${fallbackErr.message}`);
+      throw new Error(`所有生图方案均失败: qwen-image: ${errMsg}, GPT Image 2: ${fallbackErr.message}`);
     }
-
-    console.warn(
-      `[Node4] 屏${params.screenIndex} Seedream 触发内容安全审核，自动切换 GPT Image 2 重试...`
-    );
-
-    const result = await generateScreenImageFallback({
-      prompt: params.prompt,
-      screenIndex: params.screenIndex,
-      projectId: params.projectId,
-      screenLabel: params.screenLabel,
-      versionNumber: params.versionNumber,
-    });
-    console.log(`[Node4] 屏${params.screenIndex} GPT Image 2 生图成功`);
-    return result;
   }
 }
