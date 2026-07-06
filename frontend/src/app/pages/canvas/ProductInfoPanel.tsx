@@ -74,7 +74,7 @@ export const ProductInfoPanel = forwardRef<HTMLDivElement>((_, ref) => {
               {/* ── 展示分析结果 ── */}
               <FieldRow label="产品名称" value={state.project?.productInfo?.basicInfo?.name || state.project?.name || ''} />
               <FieldRow label="针对平台" value={state.project?.productInfo?.basicInfo?.category?.includes('海外') ? '海外' : '国内'} />
-              <BulletList label="核心卖点" items={(state.project?.productInfo?.productCore?.productFacts || []).filter(Boolean)} />
+              <BulletList label="核心卖点" items={(state.project?.productInfo?.productCore?.sellingPoints || []).filter(Boolean)} />
               <FieldRow label="目标人群" value={state.project?.productInfo?.basicInfo?.crowdSceneStyle || ''} />
               <FieldRow label="价格区间" value={state.project?.productInfo?.productCore?.infoGaps?.find((g: string) => g.includes('价格')) || ''} />
               <FieldRow label="设计元素要求" value={state.project?.productInfo?.productCore?.brandVisualGene || ''} editable />
