@@ -40,3 +40,9 @@ backend/test-result.json
 # ============ Claude 配置 ============
 .claude/
 
+# ============ E2E 测试产物 ============
+e2e-screenshots/
+test-results/
+playwright-report/
+blob-report/
+
