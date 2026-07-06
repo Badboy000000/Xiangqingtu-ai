@@ -104,18 +104,19 @@ export interface Node3Output {
 export interface ScreenPrompt {
   screenIndex: number;
   label: string;
-  prompt: string;                    // 完整生图提示词（兼容旧逻辑）
-  generationGoal: string;            // 生成目标
-  coreVisual: string;                // 核心视觉
-  compositionStrategy: string;       // 构图策略
-  subjectProps: string;              // 主体/道具
-  bgStyle: string;                   // 背景/风格
-  textCarrierLevel: string;          // 文字载体与层级
-  productAngle: string;              // 产品角度/景别
-  consistencyConstraints: string;    // 一致性约束
-  platformRules: string;             // 平台规则
-  outputRequirements: string;        // 输出要求
-  styleConstraints?: string;         // 兼容旧字段
+  prompt: string;                    // 完整生图提示词（唯一关键字段）
+  // 以下字段已废弃：模型不再生成，DB中可能存在历史数据，前端/Node4均不消费
+  generationGoal?: string;
+  coreVisual?: string;
+  compositionStrategy?: string;
+  subjectProps?: string;
+  bgStyle?: string;
+  textCarrierLevel?: string;
+  productAngle?: string;
+  consistencyConstraints?: string;
+  platformRules?: string;
+  outputRequirements?: string;
+  styleConstraints?: string;
 }
 
 // ─── Screen ───────────────────────────────────────────────

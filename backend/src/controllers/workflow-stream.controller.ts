@@ -1,5 +1,5 @@
 import { Response, NextFunction } from 'express';
-import { Project, Screen } from '../models';
+import { Project, Screen, DesignModule } from '../models';
 import { AppError } from '../middleware/error-handler';
 import type { AuthRequest } from '../middleware/auth.middleware';
 import { createSSEResponse, SSEResponse } from '../utils/sse';
@@ -145,34 +145,41 @@ export async function streamWorkflow(
       throw err;
     }
 
-    // ── 节点3: 分屏 Prompt 生成 ──
+    // ── 节点3: 分屏 Prompt 生成（并行流式版） ──
     sse.sendProgress('node3', 55, '正在生成分屏提示词...');
     console.log(`[Workflow] Starting Node 3 for project ${projectId}`);
     
     try {
-      const node3Result = await runNode3(projectId);
-      
-      // 逐屏发送提示词
-      const screens = node3Result.screenPrompts || [];
-      for (let i = 0; i < screens.length; i++) {
-        if (sse.closed) break;
-        
-        sse.send({
-          type: 'node3_screen',
-          data: {
-            screenIndex: i,
-            screen: screens[i],
-            total: screens.length,
-          },
-          timestamp: Date.now(),
-        });
-        
-        sse.sendProgress('node3', 55 + Math.floor(((i + 1) / screens.length) * 20), 
-          `已生成第 ${i + 1}/${screens.length} 屏提示词`);
-        
-        // 小延迟
-        await sleep(100);
-      }
+      // 提前获取模块总数（回调在 runNode3 内部就会触发，需要提前知道总数）
+      const totalScreenCount = await DesignModule.count({ where: { projectId } });
+      // 日志节流：按 screenIndex 跟踪上次日志位置，每200字符打一条
+      const lastLoggedChars: Record<number, number> = {};
+
+      const node3Result = await runNode3(projectId, {
+        // 每屏完成即实时推送 SSE（无需等待全部完成）
+        onScreenComplete: (screenIndex, screenPrompt) => {
+          if (!sse || sse.closed) return;
+          sse.send({
+            type: 'node3_screen',
+            data: {
+              screenIndex,
+              screen: screenPrompt,
+              total: totalScreenCount,
+            },
+            timestamp: Date.now(),
+          });
+          sse.sendProgress('node3', 55 + Math.floor(((screenIndex + 1) / totalScreenCount) * 20),
+            `已生成第 ${screenIndex + 1}/${totalScreenCount} 屏提示词`);
+        },
+        onScreenProgress: (screenIndex, chars) => {
+          // 节流日志：每200字符打一条，避免流式chunk刷屏
+          const last = lastLoggedChars[screenIndex] ?? 0;
+          if (chars - last >= 200) {
+            console.log(`[Workflow] Node3 screen ${screenIndex} streaming: ${chars} chars`);
+            lastLoggedChars[screenIndex] = chars;
+          }
+        },
+      });
       
       sse.send({
         type: 'node3_complete',

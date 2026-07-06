@@ -2,7 +2,7 @@ import { Project, Screen, DesignModule, ScreenVersion, ScreenRevision, ExportRec
 import { v4 as uuidv4 } from 'uuid';
 import { analyzeProductInfo } from './node1-info.service';
 import { generateDesignPlan } from './node2-plan.service';
-import { generateScreenPrompts } from './node3-prompt.service';
+import { generateScreenPrompts, generateMotherPrompt, generateSingleScreenPrompt } from './node3-prompt.service';
 import { generateScreenImageSmart } from './node4-image.service';
 import { composeLongImage } from './export.service';
 import { reviseScreenPrompt } from './node3-prompt.service';
@@ -207,11 +207,21 @@ export async function runNode2(projectId: string) {
 }
 
 /**
- * 节点3: 分屏 Prompt 生成
- * 全局母提示词存入 projects.prompt_gen_mother_prompt
- * 每屏提示词的 13 个字段全部写入 screens 表
+ * 节点3 回调接口：供 controller 层接收逐屏实时推送
  */
-export async function runNode3(projectId: string) {
+export interface Node3Callbacks {
+  onScreenComplete?: (screenIndex: number, screenPrompt: any) => void;
+  onScreenProgress?: (screenIndex: number, chars: number) => void;
+}
+
+/**
+ * 节点3: 分屏 Prompt 生成（并行流式版）
+ * Step1: 生成全局母提示词
+ * Step2: 逐屏并发生成每屏提示词（每屏完成即触发回调）
+ * 全局母提示词存入 projects.prompt_gen_mother_prompt
+ * 每屏提示词全部字段写入 screens 表
+ */
+export async function runNode3(projectId: string, callbacks?: Node3Callbacks) {
   const project = await Project.findByPk(projectId);
   if (!project) throw new AppError('项目不存在', 404);
   if (!project.designPlanResult) {
@@ -241,62 +251,101 @@ export async function runNode3(projectId: string) {
       })),
     };
 
-    const node3Output = await generateScreenPrompts(node2Output);
+    // ── Step 1: 生成全局母提示词（轻量调用，~5秒） ──
+    console.log(`[Node3] Step 1: generating mother prompt...`);
+    const motherPrompt = await generateMotherPrompt(node2Output);
+    console.log(`[Node3] Mother prompt generated: ${motherPrompt.substring(0, 80)}...`);
 
     // 全局母提示词存入 projects 表
-    await project.update({ promptGenMotherPrompt: node3Output.globalMotherPrompt });
+    await project.update({ promptGenMotherPrompt: motherPrompt });
 
-    // 检测 LLM 返回的索引基线：最小值为 0 则 0-based，否则 1-based
-    const minIndex = Math.min(...node3Output.screenPrompts.map(sp => sp.screenIndex));
-    const isZeroBased = minIndex === 0;
-    console.log(`[Node3] LLM screenIndex range: ${minIndex}~${Math.max(...node3Output.screenPrompts.map(sp => sp.screenIndex))}, isZeroBased: ${isZeroBased}`);
+    // ── Step 2: 逐屏并发生成每屏提示词 ──
+    console.log(`[Node3] Step 2: generating ${modules.length} screen prompts in parallel...`);
+    const totalScreens = modules.length;
+    const screenResults = await Promise.all(
+      node2Output.modules.map(async (m, i) => {
+        console.log(`[Node3] Screen ${i} (${m.theme}) starting...`);
+        try {
+          const sp = await generateSingleScreenPrompt({
+            module: m,
+            motherPrompt: motherPrompt,
+            overallStyle: node2Output.overallStyle,
+            globalVisualSystem: node2Output.globalVisualSystem,
+            screenIndex: i,
+            totalScreens,
+            onProgress: (chunk, totalLen) => {
+              callbacks?.onScreenProgress?.(i, totalLen);
+            },
+          });
+          console.log(`[Node3] Screen ${i} (${m.theme}) completed`);
 
-    // 每屏提示词全部字段写入 screens 表
-    for (const sp of node3Output.screenPrompts) {
-      // 归一化 screenIndex 为 0-based
-      const normalizedIndex = isZeroBased ? sp.screenIndex : sp.screenIndex - 1;
+          // 写入 screens 表
+          const dm = modules.find(mod => mod.moduleIndex === i);
+          const screenData = {
+            label: safeStr(sp.label, `屏${i + 1}`),
+            theme: dm?.theme || m.theme,
+            prompt: safeStr(sp.prompt),
+            generationGoal: safeStr(sp.generationGoal),
+            coreVisual: safeStr(sp.coreVisual),
+            compositionStrategy: safeStr(sp.compositionStrategy),
+            subjectProps: safeStr(sp.subjectProps),
+            bgStyle: safeStr(sp.bgStyle),
+            textCarrierLevel: safeStr(sp.textCarrierLevel),
+            productAngle: safeStr(sp.productAngle),
+            consistencyConstraints: safeStr(sp.consistencyConstraints),
+            platformRules: safeStr(sp.platformRules),
+            outputRequirements: safeStr(sp.outputRequirements),
+          };
 
-      // 从 design_modules 获取 theme（用归一化后的索引匹配）
-      const dm = modules.find(m => m.moduleIndex === normalizedIndex);
+          const [screen] = await Screen.findOrCreate({
+            where: { projectId, screenIndex: i },
+            defaults: {
+              id: uuidv4(),
+              projectId,
+              screenIndex: i,
+              ...screenData,
+              status: 'prompt_ready',
+            },
+          });
 
-      // 所有 LLM 输出字段通过 safeStr 消毒，防止对象/数组写入 STRING/TEXT 列时报错
-      const screenData = {
-        label: safeStr(sp.label, `屏${normalizedIndex + 1}`),
-        theme: dm?.theme || '',
-        prompt: safeStr(sp.prompt),
-        generationGoal: safeStr(sp.generationGoal),
-        coreVisual: safeStr(sp.coreVisual),
-        compositionStrategy: safeStr(sp.compositionStrategy),
-        subjectProps: safeStr(sp.subjectProps),
-        bgStyle: safeStr(sp.bgStyle),
-        textCarrierLevel: safeStr(sp.textCarrierLevel),
-        productAngle: safeStr(sp.productAngle),
-        consistencyConstraints: safeStr(sp.consistencyConstraints),
-        platformRules: safeStr(sp.platformRules),
-        outputRequirements: safeStr(sp.outputRequirements),
-      };
+          if (screen.status === 'waiting' || !screen.prompt) {
+            await screen.update({ ...screenData, status: 'prompt_ready' });
+          }
 
-      const [screen] = await Screen.findOrCreate({
-        where: { projectId, screenIndex: normalizedIndex },
-        defaults: {
-          id: uuidv4(),
-          projectId,
-          screenIndex: normalizedIndex,
-          ...screenData,
-          status: 'prompt_ready',
-        },
-      });
+          // 触发逐屏完成回调（用于 SSE 实时推送）
+          callbacks?.onScreenComplete?.(i, sp);
 
-      // 如果已存在，更新所有字段
-      if (screen.status === 'waiting' || !screen.prompt) {
-        await screen.update({
-          ...screenData,
-          status: 'prompt_ready',
-        });
-      }
-    }
+          return sp;
+        } catch (err: any) {
+          console.error(`[Node3] Screen ${i} (${m.theme}) failed:`, err.message);
+          // 单屏失败不阻断整体流程，返回一个占位对象
+          return {
+            screenIndex: i,
+            label: m.theme,
+            prompt: '',
+            generationGoal: '',
+            coreVisual: '',
+            compositionStrategy: '',
+            subjectProps: '',
+            bgStyle: '',
+            textCarrierLevel: '',
+            productAngle: '',
+            consistencyConstraints: '',
+            platformRules: '',
+            outputRequirements: '',
+            _error: err.message,
+          } as any;
+        }
+      })
+    );
 
-    return node3Output;
+    const successCount = screenResults.filter((r: any) => r.prompt && !r._error).length;
+    console.log(`[Node3] All screen prompts done: ${successCount}/${totalScreens} succeeded`);
+
+    return {
+      globalMotherPrompt: motherPrompt,
+      screenPrompts: screenResults,
+    };
   } catch (err: unknown) {
     await project.update({ status: 'failed' });
     throw err;
