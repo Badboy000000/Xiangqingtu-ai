@@ -1,5 +1,5 @@
 import { chatCompletionJSON, chatCompletion } from '../adapters/llm.adapter';
-import { NODE3_SYSTEM_PROMPT, SCREEN_REVISE_PROMPT } from '../prompts/system-prompts';
+import { loadPrompt } from '../prompts/prompt-loader';
 import type { Node2Output, Node3Output } from '../types';
 import type { ChatMessage } from '../adapters/llm.adapter';
 
@@ -55,7 +55,7 @@ ${node2Output.modules.map(m => `
 请为每一屏生成可直接用于图像模型的生图提示词。`;
 
   const messages: ChatMessage[] = [
-    { role: 'system', content: NODE3_SYSTEM_PROMPT },
+    { role: 'system', content: loadPrompt('node3-system') },
     { role: 'user', content: userContent },
   ];
 
@@ -70,10 +70,11 @@ export async function reviseScreenPrompt(
   currentPrompt: string,
   feedback: string,
 ): Promise<string> {
-  const systemContent = SCREEN_REVISE_PROMPT
-    .replace('{label}', label)
-    .replace('{prompt}', currentPrompt)
-    .replace('{feedback}', feedback);
+  const systemContent = loadPrompt('screen-revise', {
+    label,
+    prompt: currentPrompt,
+    feedback,
+  });
 
   const messages: ChatMessage[] = [
     { role: 'system', content: systemContent },
