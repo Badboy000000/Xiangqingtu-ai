@@ -11,6 +11,18 @@ export const ProductInfoPanel = forwardRef<HTMLDivElement>((_, ref) => {
 
   // 当 projectId 存在且项目已加载但没有 productInfo 时，自动启动工作流
   useEffect(() => {
+    // ← Layer 1: 如果正在加载项目数据，跳过（防止竞态条件）
+    if (state.projectLoading) {
+      console.log('[ProductInfoPanel] Project is loading, skip auto-trigger');
+      return;
+    }
+    
+    // ← Layer 2: 如果工作流已经执行过，跳过（防止重复触发）
+    if (state.workflowHasRun) {
+      console.log('[ProductInfoPanel] Workflow has already run, skip auto-trigger');
+      return;
+    }
+    
     // 只有全新项目（无 screens 或 screens 都为空）才自动启动工作流
     // 如果已经有生成的屏，说明工作流已完成，不应再次触发
     const hasGeneratedScreens = state.screens.some(s => s.imageUrl);
@@ -18,12 +30,12 @@ export const ProductInfoPanel = forwardRef<HTMLDivElement>((_, ref) => {
     // 额外保护：如果项目状态已是 complete，绝对不要触发
     if (state.workflowStep === 'complete') return;
     
+    // ← Layer 3: 综合判断是否应该自动触发工作流
     if (
       state.projectId && 
       state.project && 
-      !state.project?.productInfo && 
-      !workflowTriggeredRef.current &&
-      !hasGeneratedScreens  // ← 关键：只有没有生成图片时才触发
+      !state.project?.node1Output &&   // 没有 node1 数据
+      !hasGeneratedScreens             // 没有生成的图片
     ) {
       console.log('[ProductInfoPanel] Auto-starting workflow for project:', state.projectId);
       workflowTriggeredRef.current = true;
@@ -34,10 +46,19 @@ export const ProductInfoPanel = forwardRef<HTMLDivElement>((_, ref) => {
         workflowTriggeredRef.current = false; // 允许重试
       });
     }
-  }, [state.projectId, state.project, state.project?.productInfo, state.screens, state.workflowStep, startWorkflow]);
+  }, [
+    state.projectId, 
+    state.project, 
+    state.project?.node1Output,     // ← 改为检查 node1Output
+    state.screens, 
+    state.workflowStep,
+    state.projectLoading,     // ← Layer 1
+    state.workflowHasRun,     // ← Layer 2
+    startWorkflow
+  ]);
 
   // 判断是否已完成节点1（有商品信息）
-  const hasProductInfo = !!state.project?.productInfo;
+  const hasProductInfo = !!state.project?.node1Output;
 
   return (
     <div ref={ref} style={{ width: "300px", alignSelf: "flex-start" }}>
@@ -72,18 +93,18 @@ export const ProductInfoPanel = forwardRef<HTMLDivElement>((_, ref) => {
           ) : (
             <>
               {/* ── 展示分析结果 ── */}
-              <FieldRow label="产品名称" value={state.project?.productInfo?.basicInfo?.name || state.project?.name || ''} />
-              <FieldRow label="针对平台" value={state.project?.productInfo?.basicInfo?.category?.includes('海外') ? '海外' : '国内'} />
-              <BulletList label="核心卖点" items={(state.project?.productInfo?.productCore?.sellingPoints || []).filter(Boolean)} />
-              <FieldRow label="目标人群" value={state.project?.productInfo?.basicInfo?.crowdSceneStyle || ''} />
-              <FieldRow label="价格区间" value={state.project?.productInfo?.productCore?.infoGaps?.find((g: string) => g.includes('价格')) || ''} />
-              <FieldRow label="设计元素要求" value={state.project?.productInfo?.productCore?.brandVisualGene || ''} editable />
+              <FieldRow label="产品名称" value={state.project?.node1Output?.basicInfo?.name || state.project?.name || ''} />
+              <FieldRow label="针对平台" value={state.project?.node1Output?.basicInfo?.category?.includes('海外') ? '海外' : '国内'} />
+              <BulletList label="核心卖点" items={(state.project?.node1Output?.productCore?.sellingPoints || []).filter(Boolean)} />
+              <FieldRow label="目标人群" value={state.project?.node1Output?.basicInfo?.crowdSceneStyle || ''} />
+              <FieldRow label="价格区间" value={state.project?.node1Output?.productCore?.infoGaps?.find((g: string) => g.includes('价格')) || ''} />
+              <FieldRow label="设计元素要求" value={state.project?.node1Output?.productCore?.brandVisualGene || ''} editable />
 
-              {state.project?.productInfo?.referenceImageUrls?.length > 0 && (
+              {state.project?.node1Output?.referenceImageUrls?.length > 0 && (
                 <div>
                   <div style={{ fontSize: "10.5px", color: "rgba(30,20,32,0.38)", fontFamily: zh, marginBottom: "6px" }}>参考图</div>
                   <div style={{ display: "flex", gap: "6px", flexWrap: "wrap" as const }}>
-                    {state.project?.productInfo.referenceImageUrls.map((url: string, i: number) => (
+                    {state.project?.node1Output.referenceImageUrls.map((url: string, i: number) => (
                       <img key={i} src={url} alt={`ref-${i}`} style={{ width: "52px", height: "52px", objectFit: "cover", borderRadius: "6px", border: "1px solid rgba(0,0,0,0.08)" }} />
                     ))}
                   </div>

@@ -38,9 +38,12 @@ interface State {
   exportResult: any;
   error: string | null;
   planText: string;
+  node2Output: any;         // ← 新增：节点2完整输出数据
   workflowStep: 'idle' | 'creating' | 'node1' | 'node2' | 'node3' | 'node4' | 'complete';
   sseConnected: boolean;
   workflowProgress: number; // 0-100
+  projectLoading: boolean;  // ← 新增：项目数据加载中标志
+  workflowHasRun: boolean;  // ← 新增：工作流是否已执行过
 }
 
 type Action =
@@ -61,6 +64,9 @@ type Action =
   | { type: 'SET_WORKFLOW_STEP'; payload: State['workflowStep'] }
   | { type: 'SET_SSE_CONNECTED'; payload: boolean }
   | { type: 'SET_WORKFLOW_PROGRESS'; payload: number }
+  | { type: 'SET_PROJECT_LOADING'; payload: boolean }      // ← 新增
+  | { type: 'SET_WORKFLOW_HAS_RUN'; payload: boolean }     // ← 新增
+  | { type: 'SET_NODE2_OUTPUT'; payload: any }             // ← 新增：保存节点2完整输出
   | { type: 'RESET' };
 
 const initialState: State = {
@@ -75,9 +81,12 @@ const initialState: State = {
   exportResult: null,
   error: null,
   planText: '',
+  node2Output: null,        // ← 新增
   workflowStep: 'idle',
   sseConnected: false,
   workflowProgress: 0,
+  projectLoading: false,    // ← 新增
+  workflowHasRun: false,    // ← 新增
 };
 
 function reducer(state: State, action: Action): State {
@@ -131,6 +140,16 @@ function reducer(state: State, action: Action): State {
       return { ...state, sseConnected: action.payload };
     case 'SET_WORKFLOW_PROGRESS':
       return { ...state, workflowProgress: action.payload };
+    case 'SET_PROJECT_LOADING':
+      return { ...state, projectLoading: action.payload };
+    case 'SET_WORKFLOW_HAS_RUN':
+      return { ...state, workflowHasRun: action.payload };
+    case 'SET_NODE2_OUTPUT':  // ← 新增：保存节点2完整输出
+      return { 
+        ...state, 
+        node2Output: action.payload,
+        planText: action.payload?.overallStyle || state.planText  // 同时更新 planText 用于显示
+      };
     case 'RESET':
       return initialState;
     default:
@@ -187,6 +206,7 @@ export function ProjectProvider({ children }: { children: ReactNode }) {
       // 步骤1: 创建项目
       dispatch({ type: 'SET_WORKFLOW_STEP', payload: 'creating' });
       dispatch({ type: 'SET_WORKFLOW_PROGRESS', payload: 5 });
+      dispatch({ type: 'SET_WORKFLOW_HAS_RUN', payload: true });  // ← 标记工作流开始执行
       
       const project = await api.createProject(params);
       const id = project.id;
@@ -307,6 +327,8 @@ export function ProjectProvider({ children }: { children: ReactNode }) {
                 break;
                 
               case 'node2_complete':
+                // 保存完整的 node2Output 数据
+                dispatch({ type: 'SET_NODE2_OUTPUT', payload: sseMessage.data });
                 dispatch({ type: 'SET_WORKFLOW_STEP', payload: 'node2' });
                 break;
                 
@@ -381,6 +403,7 @@ export function ProjectProvider({ children }: { children: ReactNode }) {
       console.log('[ProjectContext] Starting workflow for project:', projectId);
       dispatch({ type: 'SET_WORKFLOW_STEP', payload: 'node1' });
       dispatch({ type: 'SET_WORKFLOW_PROGRESS', payload: 10 });
+      dispatch({ type: 'SET_WORKFLOW_HAS_RUN', payload: true });  // ← 标记工作流开始执行
       
       // 建立SSE连接
       const token = localStorage.getItem('token');
@@ -479,6 +502,8 @@ export function ProjectProvider({ children }: { children: ReactNode }) {
                 break;
                 
               case 'node2_complete':
+                // 保存完整的 node2Output 数据
+                dispatch({ type: 'SET_NODE2_OUTPUT', payload: sseMessage.data });
                 dispatch({ type: 'SET_WORKFLOW_STEP', payload: 'node2' });
                 break;
                 
@@ -638,6 +663,9 @@ export function ProjectProvider({ children }: { children: ReactNode }) {
   }, [state.projectId]);
 
   const loadProject = useCallback(async (id: string) => {
+    // ← Layer 1: 标记开始加载，防止 ProductInfoPanel 误触发
+    dispatch({ type: 'SET_PROJECT_LOADING', payload: true });
+    
     try {
       const project = await api.getProject(id);
       
@@ -668,24 +696,47 @@ export function ProjectProvider({ children }: { children: ReactNode }) {
         node3Output: project.promptGenMotherPrompt || null,
       };
       dispatch({ type: 'SET_PROJECT', payload: { projectId: id, project: mappedProject } });
+      
       // 恢复设计规划文本
       if (project.designPlanResult?.overallStyle) {
         dispatch({ type: 'SET_PLAN_TEXT', payload: project.designPlanResult.overallStyle });
       }
       
-      // 根据项目已有数据判断当前应该处于哪个步骤
-      // 如果有 screens 且有图片，说明已完成；否则从 node1 开始
+      // ← Layer 3: 根据数据完整性精细判断当前应该处于哪个步骤
+      const hasNode1Data = !!project.infoAnalysisResult;
+      const hasNode2Data = !!project.designPlanResult;
+      const hasNode3Data = !!project.promptGenMotherPrompt;
       const hasScreensWithImages = project.screens && project.screens.some((s: any) => s.imageUrl);
+      
       if (hasScreensWithImages) {
+        // 完全完成
         dispatch({ type: 'SET_WORKFLOW_STEP', payload: 'complete' });
         dispatch({ type: 'SET_WORKFLOW_PROGRESS', payload: 100 });
-      } else {
-        // 有项目但没有完成的工作流，设置为 node1 准备状态
+        dispatch({ type: 'SET_WORKFLOW_HAS_RUN', payload: true });
+      } else if (hasNode3Data || (project.screens && project.screens.length > 0)) {
+        // 至少到了 node3，可能用户手动触发了部分流程
+        dispatch({ type: 'SET_WORKFLOW_STEP', payload: 'node3' });
+        dispatch({ type: 'SET_WORKFLOW_PROGRESS', payload: 70 });
+        dispatch({ type: 'SET_WORKFLOW_HAS_RUN', payload: true });
+      } else if (hasNode2Data) {
+        dispatch({ type: 'SET_WORKFLOW_STEP', payload: 'node2' });
+        dispatch({ type: 'SET_WORKFLOW_PROGRESS', payload: 40 });
+        dispatch({ type: 'SET_WORKFLOW_HAS_RUN', payload: true });
+      } else if (hasNode1Data) {
         dispatch({ type: 'SET_WORKFLOW_STEP', payload: 'node1' });
-        dispatch({ type: 'SET_WORKFLOW_PROGRESS', payload: 10 });
+        dispatch({ type: 'SET_WORKFLOW_PROGRESS', payload: 15 });
+        dispatch({ type: 'SET_WORKFLOW_HAS_RUN', payload: true });
+      } else {
+        // 真正的全新项目，等待 ProductInfoPanel 触发
+        dispatch({ type: 'SET_WORKFLOW_STEP', payload: 'idle' });
+        dispatch({ type: 'SET_WORKFLOW_PROGRESS', payload: 0 });
+        dispatch({ type: 'SET_WORKFLOW_HAS_RUN', payload: false });
       }
     } catch (err: any) {
       dispatch({ type: 'SET_ERROR', payload: err.message || '加载项目失败' });
+    } finally {
+      // ← Layer 1: 加载完成，解除锁定
+      dispatch({ type: 'SET_PROJECT_LOADING', payload: false });
     }
   }, []);
 
