@@ -14,6 +14,9 @@ export const ImageCard = forwardRef<HTMLDivElement, ImageCardProps>(({ screen, i
   const isGenerating = state.node4Loading.includes(index);
   const hasImage = !!screen.imageUrl;
 
+  // 真实图片尺寸（图片加载后获取）
+  const [imgDims, setImgDims] = useState<{ w: number; h: number } | null>(null);
+
   return (
     <div ref={ref} style={{ ...cardStyle, width: "300px", borderRadius: "12px", boxShadow: "0 2px 12px rgba(0,0,0,0.07)" }}>
       {/* Card header */}
@@ -47,7 +50,17 @@ export const ImageCard = forwardRef<HTMLDivElement, ImageCardProps>(({ screen, i
           </div>
         ) : hasImage ? (
           <>
-            <img src={screen.imageUrl} alt={screen.label} style={{ width: "100%", height: "180px", objectFit: "cover", display: "block" }} />
+            <img
+              src={screen.imageUrl}
+              alt={screen.label}
+              style={{ width: "100%", height: "180px", objectFit: "cover", display: "block" }}
+              onLoad={(e) => {
+                const img = e.currentTarget;
+                if (img.naturalWidth && img.naturalHeight) {
+                  setImgDims({ w: img.naturalWidth, h: img.naturalHeight });
+                }
+              }}
+            />
             <div
               style={{ position: "absolute", inset: 0, background: "rgba(0,0,0,0.0)", display: "flex", alignItems: "center", justifyContent: "center", gap: "8px", opacity: 0, transition: "all 0.2s ease" }}
               onMouseEnter={e => { (e.currentTarget as HTMLDivElement).style.background = "rgba(0,0,0,0.3)"; (e.currentTarget as HTMLDivElement).style.opacity = "1"; }}
@@ -73,7 +86,7 @@ export const ImageCard = forwardRef<HTMLDivElement, ImageCardProps>(({ screen, i
       {/* Footer */}
       <div style={{ padding: "8px 14px", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
         <span style={{ fontSize: "10px", color: "rgba(30,20,32,0.3)", fontFamily: "'Space Grotesk', sans-serif" }}>
-          {hasImage ? "1600×2848" : "—"}
+          {imgDims ? `${imgDims.w}×${imgDims.h}` : hasImage ? "加载中..." : "—"}
         </span>
       </div>
     </div>

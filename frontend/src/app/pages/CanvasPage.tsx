@@ -1,4 +1,4 @@
-import { useRef, useState, useEffect } from "react";
+import { useRef, useState, useEffect, useCallback } from "react";
 import { useNavigate } from "react-router";
 import { CanvasTopNav } from "./canvas/CanvasTopNav";
 import { ProductInfoPanel } from "./canvas/ProductInfoPanel";
@@ -78,57 +78,74 @@ function CanvasPageInner() {
   const [svgH, setSvgH] = useState(0);
   const [svgW, setSvgW] = useState(0);
 
-  useEffect(() => {
-    const calc = () => {
-      const container = canvasRef.current;
-      if (!container) return;
-      setSvgW(container.scrollWidth);
-      setSvgH(container.scrollHeight);
+  // 提取连线计算逻辑为独立函数，供多处调用
+  const calcLines = useCallback(() => {
+    const container = canvasRef.current;
+    if (!container) return;
+    setSvgW(container.scrollWidth);
+    setSvgH(container.scrollHeight);
 
-      const next: LineCoord[] = [];
+    const next: LineCoord[] = [];
 
-      // Product Info → Design Plan
-      if (productRef.current && designRef.current) {
-        const p = getRelPos(productRef.current, container);
-        const d = getRelPos(designRef.current, container);
-        next.push({ x1: p.right, y1: p.centerY, x2: d.left, y2: d.centerY });
-      }
+    // Product Info → Design Plan
+    if (productRef.current && designRef.current) {
+      const p = getRelPos(productRef.current, container);
+      const d = getRelPos(designRef.current, container);
+      next.push({ x1: p.right, y1: p.centerY, x2: d.left, y2: d.centerY });
+    }
 
-      // Design Plan → each Prompt box
-      if (designRef.current) {
-        const d = getRelPos(designRef.current, container);
-        const count = promptRefs.current.length;
-        promptRefs.current.forEach((ref, i) => {
-          if (ref) {
-            const pr = getRelPos(ref, container);
-            next.push({
-              x1: d.right,
-              y1: d.top + (d.height * (i + 0.5)) / count,
-              x2: pr.left,
-              y2: pr.centerY,
-            });
-          }
-        });
-      }
-
-      // Each Prompt → corresponding Image
-      promptRefs.current.forEach((pRef, i) => {
-        const iRef = imageRefs.current[i];
-        if (pRef && iRef) {
-          const pr = getRelPos(pRef, container);
-          const ir = getRelPos(iRef, container);
-          next.push({ x1: pr.right, y1: pr.centerY, x2: ir.left, y2: ir.centerY });
+    // Design Plan → each Prompt box
+    if (designRef.current) {
+      const d = getRelPos(designRef.current, container);
+      const count = promptRefs.current.length;
+      promptRefs.current.forEach((ref, i) => {
+        if (ref) {
+          const pr = getRelPos(ref, container);
+          next.push({
+            x1: d.right,
+            y1: d.top + (d.height * (i + 0.5)) / count,
+            x2: pr.left,
+            y2: pr.centerY,
+          });
         }
       });
+    }
 
-      setLines(next);
-    };
+    // Each Prompt → corresponding Image
+    promptRefs.current.forEach((pRef, i) => {
+      const iRef = imageRefs.current[i];
+      if (pRef && iRef) {
+        const pr = getRelPos(pRef, container);
+        const ir = getRelPos(iRef, container);
+        next.push({ x1: pr.right, y1: pr.centerY, x2: ir.left, y2: ir.centerY });
+      }
+    });
 
-    // Wait for layout + images to settle
-    const t = setTimeout(calc, 120);
-    window.addEventListener("resize", calc);
-    return () => { clearTimeout(t); window.removeEventListener("resize", calc); };
-  }, []);
+    setLines(next);
+  }, [screenCount]);
+
+  // 当 screens 数量变化时重新计算连线（新增/删除屏）
+  useEffect(() => {
+    // 延迟执行确保 DOM 已更新
+    const t = setTimeout(calcLines, 100);
+    return () => clearTimeout(t);
+  }, [state.screens.length, calcLines]);
+
+  // 当设计规划文本更新时重新计算连线（DesignPlanPanel 高度可能变化）
+  useEffect(() => {
+    if (state.planText) {
+      const t = setTimeout(calcLines, 100);
+      return () => clearTimeout(t);
+    }
+  }, [state.planText, calcLines]);
+
+  // 当工作流完成时强制重新计算所有连线
+  useEffect(() => {
+    if (state.workflowStep === 'complete') {
+      const t = setTimeout(calcLines, 150);
+      return () => clearTimeout(t);
+    }
+  }, [state.workflowStep, calcLines]);
 
   return (
     <div style={{ height: "100vh", display: "flex", flexDirection: "column", background: "#f5f2ec", fontFamily: "'Space Grotesk', -apple-system, sans-serif" }}>

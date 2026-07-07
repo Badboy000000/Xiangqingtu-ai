@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useNavigate } from "react-router";
-import { ZoomIn, ZoomOut, Maximize2, RefreshCw, CheckCircle2, AlertCircle, Smartphone, Monitor, Signal, Wifi, Battery, Lock } from "lucide-react";
+import { ZoomIn, ZoomOut, Maximize2, RefreshCw, CheckCircle2, AlertCircle, Smartphone, Monitor, Signal, Wifi, Battery, Lock, ChevronLeft, ChevronRight, X } from "lucide-react";
 import { zh, en } from "../../constants/theme";
 
 interface Screen {
@@ -125,43 +125,38 @@ export function PreviewCanvas({ screens, confirmed, onToggleConfirm }: PreviewCa
             /* ─── Mobile phone frame ─────────────────────────── */
             <div style={{
               background: "#1a1a1e",
-              borderRadius: "36px",
-              padding: "10px",
+              borderRadius: "44px",
+              padding: "14px",
               boxShadow: "0 24px 64px rgba(0,0,0,0.22), 0 4px 16px rgba(0,0,0,0.14)",
             }}>
               <div style={{
                 background: "#000",
-                borderRadius: "28px",
+                borderRadius: "32px",
                 overflow: "hidden",
                 position: "relative",
               }}>
-                {/* Dynamic island */}
+                {/* Status bar with integrated dynamic island */}
                 <div style={{
                   position: "sticky", top: 0, zIndex: 10,
-                  display: "flex", flexDirection: "column", alignItems: "center",
                   background: "#000",
-                  paddingBottom: "2px",
+                  height: "50px",
+                  display: "flex", justifyContent: "space-between", alignItems: "center",
+                  padding: "0 28px",
                 }}>
+                  {/* Time */}
+                  <span style={{ fontSize: "15px", fontWeight: 600, color: "#fff", fontFamily: en, zIndex: 2 }}>9:41</span>
+                  {/* Dynamic island */}
                   <div style={{
-                    width: "120px", height: "28px",
-                    background: "#000", borderRadius: "0 0 18px 18px",
-                    display: "flex", alignItems: "center", justifyContent: "center",
-                    marginTop: "0px",
-                  }}>
-                    <div style={{ width: "10px", height: "10px", borderRadius: "50%", background: "#111", border: "1.5px solid #222" }} />
-                  </div>
-                  {/* iOS status bar */}
-                  <div style={{
-                    width: "100%", display: "flex", justifyContent: "space-between",
-                    alignItems: "center", padding: "0 28px 6px",
-                    fontSize: "13px", fontWeight: 700, color: "#fff", fontFamily: en,
-                  }}>
-                    <span>9:41</span>
-                    <div style={{ display: "flex", gap: "5px", alignItems: "center" }}>
-                      <Signal size={12} color="#fff" />
-                      <Wifi size={12} color="#fff" />
-                      <Battery size={15} color="#fff" />
-                    </div>
+                    position: "absolute", left: "50%", transform: "translateX(-50%)", top: "10px",
+                    width: "120px", height: "32px",
+                    background: "#000", borderRadius: "20px",
+                    boxShadow: "inset 0 0 0 1px rgba(255,255,255,0.06)",
+                  }} />
+                  {/* Status icons */}
+                  <div style={{ display: "flex", gap: "6px", alignItems: "center", zIndex: 2 }}>
+                    <Signal size={14} color="#fff" />
+                    <Wifi size={14} color="#fff" />
+                    <Battery size={20} color="#fff" />
                   </div>
                 </div>
 
@@ -232,7 +227,7 @@ export function PreviewCanvas({ screens, confirmed, onToggleConfirm }: PreviewCa
                 </div>
 
                 {/* iOS home indicator */}
-                <div style={{ background: "#f5f3ef", paddingBottom: "8px", display: "flex", justifyContent: "center" }}>
+                <div style={{ background: "#f5f3ef", padding: "8px 0 10px", display: "flex", justifyContent: "center" }}>
                   <div style={{ width: "134px", height: "5px", background: "rgba(0,0,0,0.18)", borderRadius: "3px" }} />
                 </div>
               </div>
@@ -241,18 +236,48 @@ export function PreviewCanvas({ screens, confirmed, onToggleConfirm }: PreviewCa
             /* ─── PC browser frame ─────────────────────────── */
             <div style={{
               background: "#fff",
-              borderRadius: "10px",
+              borderRadius: "12px",
               overflow: "hidden",
               boxShadow: "0 20px 60px rgba(0,0,0,0.18), 0 4px 14px rgba(0,0,0,0.1)",
               border: "1px solid rgba(0,0,0,0.09)",
             }}>
-              {/* Browser chrome */}
+              {/* Tab bar */}
+              <div style={{
+                height: "38px",
+                background: "#ededf0",
+                borderBottom: "1px solid #d8d8dc",
+                display: "flex", alignItems: "flex-end",
+                padding: "0 10px", gap: "2px",
+              }}>
+                {/* Active tab */}
+                <div style={{
+                  display: "flex", alignItems: "center", gap: "8px",
+                  padding: "0 14px", height: "38px",
+                  background: "#fff",
+                  borderRadius: "10px 10px 0 0",
+                  maxWidth: "220px",
+                  border: "1px solid #d8d8dc", borderBottom: "1px solid #fff",
+                  marginBottom: "-1px",
+                }}>
+                  <div style={{ width: "12px", height: "12px", borderRadius: "50%", background: "#f97316", flexShrink: 0 }} />
+                  <span style={{ fontSize: "12px", color: "#333", fontFamily: zh, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", flex: 1 }}>
+                    商品详情页
+                  </span>
+                  <X size={12} color="#aaa" style={{ flexShrink: 0 }} />
+                </div>
+                {/* New tab button */}
+                <div style={{ padding: "0 8px", height: "38px", display: "flex", alignItems: "center" }}>
+                  <span style={{ fontSize: "14px", color: "#999" }}>+</span>
+                </div>
+              </div>
+
+              {/* Toolbar with address bar */}
               <div style={{
                 height: "42px",
-                background: "linear-gradient(180deg, #f8f8fa 0%, #f0f0f2 100%)",
-                borderBottom: "1px solid #d8d8dc",
+                background: "#fff",
+                borderBottom: "1px solid #e4e4e8",
                 display: "flex", alignItems: "center",
-                padding: "0 14px", gap: "8px",
+                padding: "0 14px", gap: "12px",
               }}>
                 {/* Traffic lights */}
                 <div style={{ display: "flex", gap: "6px", flexShrink: 0 }}>
@@ -260,87 +285,101 @@ export function PreviewCanvas({ screens, confirmed, onToggleConfirm }: PreviewCa
                   <div style={{ width: "12px", height: "12px", borderRadius: "50%", background: "#febc2e", border: "0.5px solid rgba(0,0,0,0.06)" }} />
                   <div style={{ width: "12px", height: "12px", borderRadius: "50%", background: "#28c840", border: "0.5px solid rgba(0,0,0,0.06)" }} />
                 </div>
-                {/* URL bar */}
+                {/* Nav buttons */}
+                <div style={{ display: "flex", gap: "2px", flexShrink: 0 }}>
+                  <div style={{ width: "28px", height: "28px", borderRadius: "6px", display: "flex", alignItems: "center", justifyContent: "center" }}>
+                    <ChevronLeft size={16} color="#666" />
+                  </div>
+                  <div style={{ width: "28px", height: "28px", borderRadius: "6px", display: "flex", alignItems: "center", justifyContent: "center" }}>
+                    <ChevronRight size={16} color="#ccc" />
+                  </div>
+                  <div style={{ width: "28px", height: "28px", borderRadius: "6px", display: "flex", alignItems: "center", justifyContent: "center" }}>
+                    <RefreshCw size={13} color="#666" />
+                  </div>
+                </div>
+                {/* Address bar */}
                 <div style={{
-                  flex: 1, height: "26px",
-                  background: "#fff",
-                  border: "1px solid rgba(0,0,0,0.1)",
-                  borderRadius: "6px",
+                  flex: 1, height: "28px",
+                  background: "#f5f5f7",
+                  border: "1px solid #e4e4e8",
+                  borderRadius: "8px",
                   display: "flex", alignItems: "center",
-                  padding: "0 10px", gap: "5px",
-                  margin: "0 40px 0 8px",
+                  padding: "0 12px", gap: "6px",
+                  margin: "0 40px 0 0",
                 }}>
-                  <Lock size={10} color="#aaa" />
-                  <span style={{ fontSize: "11px", color: "#999", fontFamily: en, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+                  <Lock size={11} color="#999" />
+                  <span style={{ fontSize: "11.5px", color: "#666", fontFamily: en, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
                     detail.tmall.com/item.htm?id=product
                   </span>
                 </div>
               </div>
 
               {/* Page content */}
-              <div style={{ background: "#f5f3ef" }}>
-                {screens.map((screen, i) => (
-                  <div
-                    key={i}
-                    style={{ position: "relative" }}
-                    onMouseEnter={() => setHoveredScreen(i)}
-                    onMouseLeave={() => setHoveredScreen(null)}
-                  >
-                    {/* Screen label overlay */}
-                    <div style={{
-                      position: "absolute", top: "10px", left: "10px", zIndex: 3,
-                      background: "rgba(0,0,0,0.5)", backdropFilter: "blur(8px)",
-                      borderRadius: "6px", padding: "3px 10px",
-                      display: "flex", alignItems: "center", gap: "6px",
-                    }}>
-                      <span style={{ fontSize: "10px", color: "rgba(255,255,255,0.85)", fontFamily: en, fontWeight: 700 }}>{i + 1}</span>
-                      <span style={{ fontSize: "10px", color: "rgba(255,255,255,0.6)", fontFamily: zh }}>{screen.label}</span>
-                    </div>
-
-                    {/* Confirm status */}
-                    <div style={{ position: "absolute", top: "10px", right: "10px", zIndex: 3 }}>
-                      {confirmed[i]
-                        ? <CheckCircle2 size={18} color="#22c55e" style={{ filter: "drop-shadow(0 1px 3px rgba(0,0,0,0.4))" }} />
-                        : <AlertCircle size={18} color="#f97316" style={{ filter: "drop-shadow(0 1px 3px rgba(0,0,0,0.4))" }} />
-                      }
-                    </div>
-
-                    <img src={screen.url} alt={screen.label} style={{ width: "100%", display: "block" }} />
-
-                    {/* Hover overlay */}
-                    {hoveredScreen === i && (
+              <div style={{ background: "#f5f3ef", display: "flex", justifyContent: "center" }}>
+                <div style={{ width: "100%", maxWidth: "790px" }}>
+                  {screens.map((screen, i) => (
+                    <div
+                      key={i}
+                      style={{ position: "relative" }}
+                      onMouseEnter={() => setHoveredScreen(i)}
+                      onMouseLeave={() => setHoveredScreen(null)}
+                    >
+                      {/* Screen label overlay */}
                       <div style={{
-                        position: "absolute", inset: 0,
-                        background: "rgba(0,0,0,0.35)",
-                        display: "flex", alignItems: "center", justifyContent: "center", gap: "10px",
+                        position: "absolute", top: "10px", left: "10px", zIndex: 3,
+                        background: "rgba(0,0,0,0.5)", backdropFilter: "blur(8px)",
+                        borderRadius: "6px", padding: "3px 10px",
+                        display: "flex", alignItems: "center", gap: "6px",
                       }}>
-                        <button
-                          onClick={() => navigate("/canvas")}
-                          style={{
-                            display: "flex", alignItems: "center", gap: "5px",
-                            padding: "8px 18px", borderRadius: "8px",
-                            background: "rgba(255,255,255,0.95)", border: "none",
-                            fontSize: "12px", fontWeight: 600, cursor: "pointer", color: "#1e1420", fontFamily: zh,
-                          }}
-                        >
-                          <RefreshCw size={13} /> 调整此屏
-                        </button>
-                        <button
-                          onClick={() => onToggleConfirm(i)}
-                          style={{
-                            display: "flex", alignItems: "center", gap: "5px",
-                            padding: "8px 18px", borderRadius: "8px",
-                            background: confirmed[i] ? "rgba(249,115,22,0.92)" : "rgba(34,197,94,0.92)",
-                            border: "none", fontSize: "12px", fontWeight: 600, cursor: "pointer", color: "#fff", fontFamily: zh,
-                          }}
-                        >
-                          <CheckCircle2 size={13} />
-                          {confirmed[i] ? "取消确认" : "确认此屏"}
-                        </button>
+                        <span style={{ fontSize: "10px", color: "rgba(255,255,255,0.85)", fontFamily: en, fontWeight: 700 }}>{i + 1}</span>
+                        <span style={{ fontSize: "10px", color: "rgba(255,255,255,0.6)", fontFamily: zh }}>{screen.label}</span>
                       </div>
-                    )}
-                  </div>
-                ))}
+
+                      {/* Confirm status */}
+                      <div style={{ position: "absolute", top: "10px", right: "10px", zIndex: 3 }}>
+                        {confirmed[i]
+                          ? <CheckCircle2 size={18} color="#22c55e" style={{ filter: "drop-shadow(0 1px 3px rgba(0,0,0,0.4))" }} />
+                          : <AlertCircle size={18} color="#f97316" style={{ filter: "drop-shadow(0 1px 3px rgba(0,0,0,0.4))" }} />
+                        }
+                      </div>
+
+                      <img src={screen.url} alt={screen.label} style={{ width: "100%", display: "block" }} />
+
+                      {/* Hover overlay */}
+                      {hoveredScreen === i && (
+                        <div style={{
+                          position: "absolute", inset: 0,
+                          background: "rgba(0,0,0,0.35)",
+                          display: "flex", alignItems: "center", justifyContent: "center", gap: "10px",
+                        }}>
+                          <button
+                            onClick={() => navigate("/canvas")}
+                            style={{
+                              display: "flex", alignItems: "center", gap: "5px",
+                              padding: "8px 18px", borderRadius: "8px",
+                              background: "rgba(255,255,255,0.95)", border: "none",
+                              fontSize: "12px", fontWeight: 600, cursor: "pointer", color: "#1e1420", fontFamily: zh,
+                            }}
+                          >
+                            <RefreshCw size={13} /> 调整此屏
+                          </button>
+                          <button
+                            onClick={() => onToggleConfirm(i)}
+                            style={{
+                              display: "flex", alignItems: "center", gap: "5px",
+                              padding: "8px 18px", borderRadius: "8px",
+                              background: confirmed[i] ? "rgba(249,115,22,0.92)" : "rgba(34,197,94,0.92)",
+                              border: "none", fontSize: "12px", fontWeight: 600, cursor: "pointer", color: "#fff", fontFamily: zh,
+                            }}
+                          >
+                            <CheckCircle2 size={13} />
+                            {confirmed[i] ? "取消确认" : "确认此屏"}
+                          </button>
+                        </div>
+                      )}
+                    </div>
+                  ))}
+                </div>
               </div>
             </div>
           )}
