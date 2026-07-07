@@ -196,7 +196,7 @@ export async function generateWithQwenImage(params: {
   n?: number;                  // 生成张数，最多 6
   watermark?: boolean;
 }): Promise<ImageGenResult[]> {
-  // 构建 content 数组：参考图在前，顺序声明在中，文本在后
+  // 构建 content 数组：参考图在前，文本在后
   const content: Array<Record<string, string>> = [];
 
   // 参考图（压缩后再 base64 编码，避免请求体过大）
@@ -207,16 +207,17 @@ export async function generateWithQwenImage(params: {
     images.forEach((img) => {
       content.push({ image: img });
     });
-
-    // 注入顺序绑定声明：在图片和提示词之间建立显式映射
-    const declaration = buildOrderDeclaration(images.length, params.referenceIndices);
-    if (declaration) {
-      content.push({ text: declaration });
-    }
   }
 
-  // 文本提示词
-  content.push({ text: params.prompt });
+  // 将顺序绑定声明与提示词合并为单个 text 项
+  // wan2.7 API 要求最后一条消息只能有1个文本内容项
+  const declaration = (params.referenceImages && params.referenceImages.length > 0)
+    ? buildOrderDeclaration(params.referenceImages.length, params.referenceIndices)
+    : null;
+  const combinedText = declaration
+    ? `${declaration}\n\n${params.prompt}`
+    : params.prompt;
+  content.push({ text: combinedText });
 
   const body = {
     model: config.bailianImage.model,
