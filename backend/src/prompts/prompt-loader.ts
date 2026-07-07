@@ -112,7 +112,7 @@ export function listPrompts(): Array<{ id: string; meta: PromptMeta }> {
 /**
  * 获取提示词，支持变量替换
  * 返回完整内容（含 YAML Frontmatter），供 LLM 作为系统提示词使用
- * @param name 提示词文件名（不含 .md 后缀），如 'node1-system'
+ * @param name 提示词文件名（不含 .md 后缀），如 'node1-image-analysis'
  * @param vars 可选的变量映射，将 {key} 替换为 value
  */
 export function loadPrompt(name: string, vars?: Record<string, string | number>): string {

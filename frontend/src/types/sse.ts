@@ -30,22 +30,26 @@ export interface ProgressData {
   message: string;   // 进度描述
 }
 
+export interface VisionReport {
+  imageIndex: number;    // 图片索引（-1 表示无图纯文本分析）
+  imageUrl: string;
+  analysis: string;      // 自然语言视觉分析报告
+}
+
 export interface Node1CompleteData {
-  // 节点1返回的商品信息分析结果
-  basicInfo: {
+  // 节点1返回的视觉分析报告数组 + 原始表单数据
+  visionReports: VisionReport[];
+  productInfo: {
     name: string;
-    category: string;
-    crowdSceneStyle: string;
-  };
-  productCore: {
-    coreContent: string;
-    productFacts: string[];
-    visualEvidence: string[];
-    brandVisualGene: string;
-    packagingAppearance: string;
-    actionPropSuggestions: string[];
-    complianceBoundary: string[];
-    infoGaps: string[];
+    platform: string;
+    sellingPoints: string;
+    targetAudience: string;
+    priceRange: string;
+    designRequirements: string;
+    referenceImageUrls: string[];
+    category?: string;
+    language?: string;
+    screenCount?: number;
   };
   [key: string]: any;
 }
@@ -56,22 +60,7 @@ export interface Node2StreamData {
 }
 
 export interface Node2CompleteData {
-  overallStyle: string;
-  globalVisualSystem: any;
-  complianceRules: string[];
-  modules: Array<{
-    index: number;
-    theme: string;
-    actualImageType: string;
-    coreVisual: string;
-    bgStyle: string;
-    visualStrategy: string;
-    characterPropSuggestions: string;
-    platformRules: string;
-    textDirection: string;
-    productAngle: string;
-    coordination: string;
-  }>;
+  fullReport: string;        // 完整自然语言报告
 }
 
 export interface Node3ScreenData {
@@ -80,16 +69,6 @@ export interface Node3ScreenData {
     screenIndex: number;
     label: string;
     prompt: string;
-    generationGoal: string;
-    coreVisual: string;
-    compositionStrategy: string;
-    subjectProps: string;
-    bgStyle: string;
-    textCarrierLevel: string;
-    productAngle: string;
-    consistencyConstraints: string;
-    platformRules: string;
-    outputRequirements: string;
   };
   total: number;
 }

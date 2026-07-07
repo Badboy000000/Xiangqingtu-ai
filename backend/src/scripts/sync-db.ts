@@ -45,6 +45,9 @@ const REQUIRED_COLUMNS: ColumnDef[] = [
   { table: 'projects', column: 'language', sqlType: 'VARCHAR(20)', nullable: false, defaultValue: "'zh-CN'" },
   { table: 'projects', column: 'material', sqlType: 'VARCHAR(255)', nullable: true },
   { table: 'projects', column: 'product_specs', sqlType: 'TEXT', nullable: true },
+  // design_modules 表 - 新增字段（视觉描述 + 参考图分配）
+  { table: 'design_modules', column: 'visual_description', sqlType: 'TEXT', nullable: true },
+  { table: 'design_modules', column: 'ref_image_indices', sqlType: 'JSON', nullable: true },
 ];
 
 async function getExistingColumns(tableName: string): Promise<Set<string>> {

@@ -1,6 +1,6 @@
 import { DataTypes, Model, Optional } from 'sequelize';
 import { sequelize } from '../config/database';
-import type { ProjectStatus, Node1Output, Node2OutputGlobal } from '../types';
+import type { ProjectStatus } from '../types';
 
 /**
  * 项目表 (projects)
@@ -25,8 +25,8 @@ interface ProjectAttributes {
   material: string;                // 材质
   productSpecs: string;            // 产品规格参数
   // ── 四节点全局输出（复杂嵌套结构保留 JSON / LONGTEXT）──
-  infoAnalysisResult: Node1Output | null;              // 节点1: 信息整理结果（basicInfo + productCore）
-  designPlanResult: Node2OutputGlobal | null;          // 节点2: 设计规划全局结果（overallStyle + globalVisualSystem + complianceRules）
+  infoAnalysisResult: any;                              // 节点1: 视觉分析报告 + productInfo（新架构，any 兼容新旧格式）
+  designPlanResult: any;                                  // 节点2: 设计规划结果（新架构: { fullReport, overallStyle }，any 兼容新旧格式）
   promptGenMotherPrompt: string | null;                // 节点3: 全局母提示词
   jointGenInstruction: string | null;                  // 节点4: 联合生图总指令
   createdAt?: Date;
@@ -56,8 +56,8 @@ export class Project extends Model<ProjectAttributes, ProjectCreationAttributes>
   declare referenceImageUrls: string[];
   declare material: string;
   declare productSpecs: string;
-  declare infoAnalysisResult: Node1Output | null;
-  declare designPlanResult: Node2OutputGlobal | null;
+  declare infoAnalysisResult: any;
+  declare designPlanResult: any;
   declare promptGenMotherPrompt: string | null;
   declare jointGenInstruction: string | null;
   declare createdAt: Date;
@@ -169,13 +169,13 @@ Project.init(
       type: DataTypes.JSON,
       allowNull: true,
       field: 'info_analysis_result',
-      comment: '节点1信息整理结果: { basicInfo, productCore } 含品类/人群/核心内容/视觉依据/品牌基因等',
+      comment: '节点1信息整理结果: { visionReports, productInfo } 新架构自然语言报告',
     },
     designPlanResult: {
       type: DataTypes.JSON,
       allowNull: true,
       field: 'design_plan_result',
-      comment: '节点2设计规划全局结果: { overallStyle, globalVisualSystem(17字段), complianceRules }',
+      comment: '节点2设计规划结果: { fullReport, overallStyle } 新架构自然语言统一结论',
     },
     promptGenMotherPrompt: {
       type: DataTypes.TEXT('long'),

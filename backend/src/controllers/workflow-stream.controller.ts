@@ -1,5 +1,5 @@
 import { Response, NextFunction } from 'express';
-import { Project, Screen, DesignModule } from '../models';
+import { Project, Screen } from '../models';
 import { AppError } from '../middleware/error-handler';
 import type { AuthRequest } from '../middleware/auth.middleware';
 import { createSSEResponse, SSEResponse } from '../utils/sse';
@@ -53,65 +53,46 @@ export async function streamWorkflow(
       timestamp: Date.now(),
     });
 
-    // ── 节点1: 信息整理 ──
+    // ─ 节点1: 信息整理 ──
     sse.sendProgress('node1', 10, '正在分析商品信息...');
-    console.log(`[Workflow] Starting Node 1 for project ${projectId}`);
+    console.log(`\n========== [WORKFLOW DEBUG] STARTING NODE 1 ==========`);
+    console.log(`projectId: ${projectId}`);
+    console.log(`====================================================\n`);
     
     try {
-      let node1Result = await runNode1(projectId);
+      const node1Result = await runNode1(projectId);
       
-      // 防御性处理：LLM 可能返回 {infoAnalysisResult: {...}} 包装格式
-      // 需要解包为 {basicInfo: {...}, productCore: {...}} 标准格式
-      if (node1Result && (node1Result as any).infoAnalysisResult) {
-        console.warn('[Workflow] Node 1 result is wrapped in infoAnalysisResult, unwrapping');
-        node1Result = (node1Result as any).infoAnalysisResult;
-      }
-      
-      console.log(`[Workflow] Node 1 result keys:`, Object.keys(node1Result));
-      console.log(`[Workflow] Node 1 has basicInfo:`, !!(node1Result as any).basicInfo);
-      console.log(`[Workflow] Node 1 has productCore:`, !!(node1Result as any).productCore);
+      console.log(`\n========== [WORKFLOW DEBUG] NODE 1 COMPLETE ==========`);
+      console.log(`vision reports: ${node1Result.visionReports.length}`);
+      console.log(`======================================================\n`);
       
       sse.send({
         type: 'node1_complete',
         data: node1Result,
         timestamp: Date.now(),
       });
-      
-      sse.sendProgress('node1', 25, '商品信息分析完成');
-      console.log(`[Workflow] Node 1 completed for project ${projectId}`);
     } catch (err: any) {
       console.error(`[Workflow] Node 1 failed for project ${projectId}:`, err);
       sse.sendError(err.message || '节点1执行失败');
       throw err;
     }
 
-    // ── 节点2: 设计规划 ──
+    // ─ 节点2: 设计规划 ──
     sse.sendProgress('node2', 30, '正在生成设计规划...');
-    console.log(`[Workflow] Starting Node 2 for project ${projectId}`);
+    console.log(`\n========== [WORKFLOW DEBUG] STARTING NODE 2 ==========`);
+    console.log(`projectId: ${projectId}`);
+    console.log(`====================================================\n`);
     
     try {
       const node2Result = await runNode2(projectId);
       
-      console.log(`[Workflow] Node 2 raw result keys:`, Object.keys(node2Result));
-      console.log(`[Workflow] Node 2 modules count:`, node2Result.modules?.length);
-      console.log(`[Workflow] Node 2 overallStyle:`, node2Result.overallStyle?.substring(0, 80));
+      console.log(`\n========== [WORKFLOW DEBUG] NODE 2 COMPLETE ==========`);
+      console.log(`report length: ${node2Result.fullReport.length} chars`);
+      console.log(`======================================================\n`);
       
-      // 从 modules 中组合生成设计规划文本
-      let planText: string;
-      if (node2Result.modules && Array.isArray(node2Result.modules) && node2Result.modules.length > 0) {
-        planText = node2Result.modules
-          .map((m: any) => `## ${m.theme}\n\n**核心视觉**: ${m.coreVisual}\n**背景风格**: ${m.bgStyle}\n**视觉策略**: ${m.visualStrategy}`)
-          .join('\n\n---\n\n');
-      } else if (node2Result.overallStyle) {
-        console.warn('[Workflow] Node 2 has no modules, using overallStyle fallback');
-        planText = node2Result.overallStyle;
-      } else {
-        // 最终 fallback：输出可读的描述
-        console.warn('[Workflow] Node 2 result has no modules or overallStyle, using generic fallback');
-        planText = '设计规划已生成，但格式化输出暂不可用。请查看原始数据。';
-      }
-      
-      console.log(`[Workflow] Node 2 planText length: ${planText.length}, first 100 chars: ${planText.substring(0, 100)}`);
+      // 直接使用 fullReport 作为流式展示文本
+      const planText = node2Result.fullReport;
+      console.log(`[Workflow] Node 2 planText length: ${planText.length}`);
       
       // 流式发送设计规划（模拟逐字效果）
       const chunks = splitTextIntoChunks(planText, 50);
@@ -145,13 +126,16 @@ export async function streamWorkflow(
       throw err;
     }
 
-    // ── 节点3: 分屏 Prompt 生成（并行流式版） ──
+    //  节点3: 分屏 Prompt 生成（并行流式版） ──
     sse.sendProgress('node3', 55, '正在生成分屏提示词...');
-    console.log(`[Workflow] Starting Node 3 for project ${projectId}`);
+    console.log(`\n========== [WORKFLOW DEBUG] STARTING NODE 3 ==========`);
+    console.log(`projectId: ${projectId}`);
+    console.log(`====================================================\n`);
     
     try {
-      // 提前获取模块总数（回调在 runNode3 内部就会触发，需要提前知道总数）
-      const totalScreenCount = await DesignModule.count({ where: { projectId } });
+      // 屏数直接来自项目表单字段
+      const freshProject = await Project.findByPk(projectId);
+      const totalScreenCount = freshProject?.screenCount || 8;
       // 日志节流：按 screenIndex 跟踪上次日志位置，每200字符打一条
       const lastLoggedChars: Record<number, number> = {};
 
@@ -181,6 +165,10 @@ export async function streamWorkflow(
         },
       });
       
+      console.log(`\n========== [WORKFLOW DEBUG] NODE 3 COMPLETE ==========`);
+      console.log(`total screens:`, node3Result.screenPrompts?.length || 0);
+      console.log(`======================================================\n`);
+      
       sse.send({
         type: 'node3_complete',
         data: node3Result,
@@ -201,10 +189,14 @@ export async function streamWorkflow(
       order: [['screenIndex', 'ASC']],
     });
 
-    // ── 节点4: 池化并发生图（最多5路并行，按完成顺序推送） ──
+    //  节点4: 池化并发生图（最多5路并行，按完成顺序推送） ─
     const CONCURRENCY_LIMIT = 5;
     sse.sendProgress('node4', 80, '正在生成图片...');
-    console.log(`[Workflow] Starting Node 4 pooled image generation (${allScreens.length} screens, concurrency=${CONCURRENCY_LIMIT}) for project ${projectId}`);
+    console.log(`\n========== [WORKFLOW DEBUG] STARTING NODE 4 ==========`);
+    console.log(`projectId: ${projectId}`);
+    console.log(`total screens:`, allScreens.length);
+    console.log(`concurrency:`, CONCURRENCY_LIMIT);
+    console.log(`====================================================\n`);
 
     // 串行化 SSE 写操作，防止并发 res.write 数据交错
     let sseWriteChain: Promise<void> = Promise.resolve();
@@ -268,7 +260,9 @@ export async function streamWorkflow(
     await sseWriteChain;
 
     const successCount = results.filter(r => r.status === 'fulfilled').length;
-    console.log(`[Workflow] Node 4 pooled generation done: ${successCount}/${totalScreens} succeeded for project ${projectId}`);
+    console.log(`\n========== [WORKFLOW DEBUG] NODE 4 COMPLETE ==========`);
+    console.log(`success: ${successCount}/${totalScreens}`);
+    console.log(`====================================================\n`);
 
     sse.sendProgress('node4', 100, '工作流执行完成');
 

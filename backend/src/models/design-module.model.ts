@@ -11,35 +11,26 @@ interface DesignModuleAttributes {
   projectId: string;             // 关联项目
   moduleIndex: number;           // 模块序号 (1-8)
   theme: string;                 // 模块主题（如：首屏品牌主视觉）
-  actualImageType: string;       // 实际图位类型
-  coreVisual: string;            // 核心视觉描述
-  bgStyle: string;               // 背景/风格
-  visualStrategy: string;        // 画面策略
-  characterPropSuggestions: string; // 人物/道具建议
-  platformRules: string;         // 平台规则
   textDirection: string;         // 图位文案方向
   productAngle: string;          // 产品角度/景别
-  coordination: string;          // 协同要求
+  // ── 新架构字段 ──
+  visualDescription: string;      // 视觉描述（50-80字画面描述自然语言）
+  referenceImageIndices: number[] | null; // 该屏参考图索引数组
   createdAt?: Date;
   updatedAt?: Date;
 }
 
-interface DesignModuleCreationAttributes extends Optional<DesignModuleAttributes, 'id' | 'createdAt' | 'updatedAt'> {}
+interface DesignModuleCreationAttributes extends Optional<DesignModuleAttributes, 'id' | 'createdAt' | 'updatedAt' | 'visualDescription' | 'referenceImageIndices'> {}
 
 export class DesignModule extends Model<DesignModuleAttributes, DesignModuleCreationAttributes> implements DesignModuleAttributes {
   declare id: string;
   declare projectId: string;
   declare moduleIndex: number;
   declare theme: string;
-  declare actualImageType: string;
-  declare coreVisual: string;
-  declare bgStyle: string;
-  declare visualStrategy: string;
-  declare characterPropSuggestions: string;
-  declare platformRules: string;
   declare textDirection: string;
   declare productAngle: string;
-  declare coordination: string;
+  declare visualDescription: string;
+  declare referenceImageIndices: number[] | null;
   declare createdAt: Date;
   declare updatedAt: Date;
 }
@@ -69,43 +60,6 @@ DesignModule.init(
       allowNull: false,
       comment: '模块主题（如：首屏品牌主视觉/核心卖点图/场景使用图）',
     },
-    actualImageType: {
-      type: DataTypes.STRING(100),
-      allowNull: false,
-      defaultValue: '',
-      field: 'actual_image_type',
-      comment: '实际图位类型（如：海报图/信息图/场景图）',
-    },
-    coreVisual: {
-      type: DataTypes.TEXT,
-      allowNull: true,
-      field: 'core_visual',
-      comment: '核心视觉描述（画面主体与视觉焦点）',
-    },
-    bgStyle: {
-      type: DataTypes.TEXT,
-      allowNull: true,
-      field: 'bg_style',
-      comment: '背景风格描述',
-    },
-    visualStrategy: {
-      type: DataTypes.TEXT,
-      allowNull: true,
-      field: 'visual_strategy',
-      comment: '画面策略（构图/层次/引导线等）',
-    },
-    characterPropSuggestions: {
-      type: DataTypes.TEXT,
-      allowNull: true,
-      field: 'character_prop_suggestions',
-      comment: '人物/道具建议',
-    },
-    platformRules: {
-      type: DataTypes.TEXT,
-      allowNull: true,
-      field: 'platform_rules',
-      comment: '平台规则约束（如天猫/京东的图片规范）',
-    },
     textDirection: {
       type: DataTypes.TEXT,
       allowNull: true,
@@ -119,15 +73,22 @@ DesignModule.init(
       field: 'product_angle',
       comment: '产品角度/景别（如：正面45度特写/俯拍全景）',
     },
-    coordination: {
+    visualDescription: {
       type: DataTypes.TEXT,
       allowNull: true,
-      comment: '与其他模块的协同要求',
+      field: 'visual_description',
+      comment: '视觉描述（50-80字画面描述自然语言，Node2输出，直接用于Node3生成Prompt）',
+    },
+    referenceImageIndices: {
+      type: DataTypes.JSON,
+      allowNull: true,
+      field: 'ref_image_indices',
+      comment: '该屏参考图索引数组（0-based，如[0,1,2]，Node2输出，Node4用于参考图智能分配）',
     },
   },
   {
     sequelize,
     tableName: 'design_modules',
-    comment: '设计模块表 — 节点2输出的每个详情页图位模块规划',
+    comment: '设计模块表 — 节点2输出的每个详情页分屏方案（新架构自然语言模式）',
   },
 );

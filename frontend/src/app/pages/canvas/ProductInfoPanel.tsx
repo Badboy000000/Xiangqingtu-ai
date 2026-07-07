@@ -1,5 +1,7 @@
 import { forwardRef, useRef, useEffect, useState } from "react";
 import { Loader2 } from "lucide-react";
+import ReactMarkdown from 'react-markdown';
+import remarkGfm from 'remark-gfm';
 import { zh, cardStyle } from "../../constants/theme";
 import { useProject } from "../../../context/ProjectContext";
 
@@ -24,7 +26,6 @@ export const ProductInfoPanel = forwardRef<HTMLDivElement>((_, ref) => {
     }
     
     // 只有全新项目（无 screens 或 screens 都为空）才自动启动工作流
-    // 如果已经有生成的屏，说明工作流已完成，不应再次触发
     const hasGeneratedScreens = state.screens.some(s => s.imageUrl);
     
     // 额外保护：如果项目状态已是 complete，绝对不要触发
@@ -34,31 +35,31 @@ export const ProductInfoPanel = forwardRef<HTMLDivElement>((_, ref) => {
     if (
       state.projectId && 
       state.project && 
-      !state.project?.node1Output &&   // 没有 node1 数据
-      !hasGeneratedScreens             // 没有生成的图片
+      !state.project?.node1Output &&
+      !hasGeneratedScreens
     ) {
       console.log('[ProductInfoPanel] Auto-starting workflow for project:', state.projectId);
       workflowTriggeredRef.current = true;
       
-      // 项目已在首页创建，直接启动 SSE 工作流（不需要重复创建项目）
       startWorkflow(state.projectId).catch(err => {
         console.error('[ProductInfoPanel] Workflow failed:', err);
-        workflowTriggeredRef.current = false; // 允许重试
+        workflowTriggeredRef.current = false;
       });
     }
   }, [
     state.projectId, 
     state.project, 
-    state.project?.node1Output,     // ← 改为检查 node1Output
+    state.project?.node1Output,
     state.screens, 
     state.workflowStep,
-    state.projectLoading,     // ← Layer 1
-    state.workflowHasRun,     // ← Layer 2
+    state.projectLoading,
+    state.workflowHasRun,
     startWorkflow
   ]);
 
   // 判断是否已完成节点1（有商品信息）
   const hasProductInfo = !!state.project?.node1Output;
+  const node1Data = state.project?.node1Output;
 
   return (
     <div ref={ref} style={{ width: "300px", alignSelf: "flex-start" }}>
@@ -92,19 +93,41 @@ export const ProductInfoPanel = forwardRef<HTMLDivElement>((_, ref) => {
             </>
           ) : (
             <>
-              {/* ── 展示分析结果 ── */}
-              <FieldRow label="产品名称" value={state.project?.node1Output?.basicInfo?.name || state.project?.name || ''} />
-              <FieldRow label="针对平台" value={state.project?.node1Output?.basicInfo?.category?.includes('海外') ? '海外' : '国内'} />
-              <BulletList label="核心卖点" items={(state.project?.node1Output?.productCore?.sellingPoints || []).filter(Boolean)} />
-              <FieldRow label="目标人群" value={state.project?.node1Output?.basicInfo?.crowdSceneStyle || ''} />
-              <FieldRow label="价格区间" value={state.project?.node1Output?.productCore?.infoGaps?.find((g: string) => g.includes('价格')) || ''} />
-              <FieldRow label="设计元素要求" value={state.project?.node1Output?.productCore?.brandVisualGene || ''} editable />
+              {/* ── 展示分析结果（新架构：visionReports + productInfo） ── */}
+              <FieldRow label="产品名称" value={node1Data?.productInfo?.name || state.project?.name || ''} />
+              <FieldRow label="品类" value={node1Data?.productInfo?.category || ''} />
+              <FieldRow label="针对平台" value={node1Data?.productInfo?.platform === 'overseas' ? '海外' : '国内'} />
+              <FieldRow label="目标人群" value={node1Data?.productInfo?.targetAudience || ''} />
+              <FieldRow label="价格区间" value={node1Data?.productInfo?.priceRange || ''} />
+              <FieldRow label="设计要求" value={node1Data?.productInfo?.designRequirements || ''} editable />
 
-              {state.project?.node1Output?.referenceImageUrls?.length > 0 && (
+              {/* 卖点列表 */}
+              {node1Data?.productInfo?.sellingPoints && (
+                <BulletList label="核心卖点" items={
+                  node1Data.productInfo.sellingPoints
+                    .split('\n')
+                    .filter((s: string) => s.trim())
+                } />
+              )}
+
+              {/* 视觉分析报告列表（可折叠） */}
+              {node1Data?.visionReports && node1Data.visionReports.length > 0 && (
+                <div style={{ marginTop: "12px" }}>
+                  <div style={{ fontSize: "10.5px", color: "rgba(30,20,32,0.38)", fontFamily: zh, marginBottom: "6px" }}>
+                    视觉分析报告（{node1Data.visionReports.length} 份）
+                  </div>
+                  {node1Data.visionReports.map((report: any, i: number) => (
+                    <CollapsibleReport key={i} report={report} index={i} />
+                  ))}
+                </div>
+              )}
+
+              {/* 参考图展示 */}
+              {node1Data?.productInfo?.referenceImageUrls?.length > 0 && (
                 <div>
                   <div style={{ fontSize: "10.5px", color: "rgba(30,20,32,0.38)", fontFamily: zh, marginBottom: "6px" }}>参考图</div>
                   <div style={{ display: "flex", gap: "6px", flexWrap: "wrap" as const }}>
-                    {state.project?.node1Output.referenceImageUrls.map((url: string, i: number) => (
+                    {node1Data.productInfo.referenceImageUrls.map((url: string, i: number) => (
                       <img key={i} src={url} alt={`ref-${i}`} style={{ width: "52px", height: "52px", objectFit: "cover", borderRadius: "6px", border: "1px solid rgba(0,0,0,0.08)" }} />
                     ))}
                   </div>
@@ -118,6 +141,43 @@ export const ProductInfoPanel = forwardRef<HTMLDivElement>((_, ref) => {
   );
 });
 ProductInfoPanel.displayName = "ProductInfoPanel";
+
+// ── 可折叠的视觉分析报告组件 ──────────────────────────
+
+function CollapsibleReport({ report, index }: { report: any; index: number }) {
+  const [expanded, setExpanded] = useState(false);
+  const label = report.imageIndex >= 0 ? `图${report.imageIndex}` : '文本分析';
+  const preview = report.analysis?.substring(0, 80) + '...';
+
+  return (
+    <div style={{ marginBottom: "8px", background: "rgba(139,92,246,0.03)", borderRadius: "6px", border: "1px solid rgba(139,92,246,0.1)" }}>
+      <div
+        onClick={() => setExpanded(!expanded)}
+        style={{ padding: "8px 10px", cursor: "pointer", display: "flex", alignItems: "center", gap: "6px" }}
+      >
+        {report.imageUrl && (
+          <img src={report.imageUrl} alt={`report-${index}`} style={{ width: "32px", height: "32px", objectFit: "cover", borderRadius: "4px" }} />
+        )}
+        <div style={{ flex: 1 }}>
+          <div style={{ fontSize: "11px", fontWeight: 600, color: "#1e1420", fontFamily: zh }}>{label}</div>
+          {!expanded && (
+            <div style={{ fontSize: "10px", color: "rgba(30,20,32,0.4)", fontFamily: zh, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" as const, maxWidth: "180px" }}>
+              {preview}
+            </div>
+          )}
+        </div>
+        <span style={{ fontSize: "10px", color: "rgba(30,20,32,0.3)" }}>{expanded ? '▲' : '▼'}</span>
+      </div>
+      {expanded && (
+        <div className="md-content" style={{ padding: "0 10px 8px", fontSize: "11.5px", color: "#1e1420", fontFamily: zh, lineHeight: 1.7, maxHeight: "400px", overflowY: "auto" as const }}>
+          <ReactMarkdown remarkPlugins={[remarkGfm]}>
+            {report.analysis || ''}
+          </ReactMarkdown>
+        </div>
+      )}
+    </div>
+  );
+}
 
 // ── 辅助组件 ──────────────────────────────────────────────
 

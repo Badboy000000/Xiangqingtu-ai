@@ -13,17 +13,9 @@ export interface ProductInfo {
   screenCount?: number;       // 分屏数量（默认8，可自定义4-12）
 }
 
-/** 单屏设计方案 */
-export interface ScreenDesign {
-  label: string;
-  prompt: string;
-  imageUrl: string;
-}
-
-/** 详情页整体设计规划 */
+/** 详情页整体设计规划（纯自然语言报告） */
 export interface DesignPlan {
-  overallStyle: string;
-  screens: ScreenDesign[];
+  fullReport: string;
 }
 
 /** 导出配置 */

@@ -1,5 +1,5 @@
 import { Response, NextFunction } from 'express';
-import { Project, Screen, DesignModule, ScreenVersion, ScreenRevision, ExportRecord } from '../models';
+import { Project, Screen, ScreenVersion, ScreenRevision, ExportRecord } from '../models';
 import { AppError } from '../middleware/error-handler';
 import type { AuthRequest } from '../middleware/auth.middleware';
 import {
@@ -60,7 +60,6 @@ export async function getProject(req: AuthRequest, res: Response, next: NextFunc
     const project = await Project.findOne({
       where: { id, userId: req.userId },
       include: [
-        { model: DesignModule, as: 'designModules', order: [['moduleIndex', 'ASC']] },
         {
           model: Screen, as: 'screens',
           include: [

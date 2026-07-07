@@ -3,6 +3,20 @@ import { config } from '../config';
 import { LLM_MODEL_NAME } from './llm.adapter';
 import * as path from 'path';
 import sharp from 'sharp';
+import * as fs from 'fs';
+
+/**
+ * 保存调试日志到 Markdown 文件
+ */
+function saveDebugLog(filename: string, content: string) {
+  const debugDir = path.join(config.upload.dir, 'debug-logs');
+  if (!fs.existsSync(debugDir)) {
+    fs.mkdirSync(debugDir, { recursive: true });
+  }
+  const filePath = path.join(debugDir, filename);
+  fs.writeFileSync(filePath, content, 'utf-8');
+  console.log(`[DEBUG] Saved to ${filePath}`);
+}
 
 // 阿里百炼 qwen3.5-plus（当前启用）
 const client = new OpenAI({
@@ -52,7 +66,12 @@ async function imageToBase64Url(filePath: string): Promise<string> {
 export async function analyzeImages(
   imagePaths: string[],
   prompt: string,
+  userContext?: string,  // 可选：额外的文本上下文（如表单数据），与图片一起传入多模态消息
 ): Promise<string> {
+  // [DEBUG] Save vision input to file
+  const visionInputContent = `# Vision Analysis Input\n\n## Image Paths\n${imagePaths.map((p, i) => `${i + 1}. ${p}`).join('\n')}\n\n## User Context\n\`\`\`markdown\n${userContext || '(无)'}\n\`\`\`\n\n## Prompt\n\`\`\`markdown\n${prompt}\n\`\`\``;
+  saveDebugLog('node1-image-analysis-input.md', visionInputContent);
+
   const content: Array<{ type: string; text?: string; image_url?: { url: string } }> = [];
 
   // 添加图片（并行压缩）
@@ -68,7 +87,12 @@ export async function analyzeImages(
     });
   }
 
-  // 添加文本提示
+  // 添加额外文本上下文（如表单数据）
+  if (userContext) {
+    content.push({ type: 'text', text: userContext });
+  }
+
+  // 添加系统提示词
   content.push({ type: 'text', text: prompt });
 
   const completion = await client.chat.completions.create({
@@ -85,7 +109,12 @@ export async function analyzeImages(
     enable_thinking: false,
   } as any);
 
-  return completion.choices[0]?.message?.content || '';
+  const result = completion.choices[0]?.message?.content || '';
+
+  // [DEBUG] Save vision output to file
+  saveDebugLog('node1-image-analysis-output.md', `# Vision Analysis Output\n\n\`\`\`markdown\n${result}\n\`\`\``);
+
+  return result;
 }
 
 /**

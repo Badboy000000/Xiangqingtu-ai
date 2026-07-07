@@ -144,11 +144,12 @@ function reducer(state: State, action: Action): State {
       return { ...state, projectLoading: action.payload };
     case 'SET_WORKFLOW_HAS_RUN':
       return { ...state, workflowHasRun: action.payload };
-    case 'SET_NODE2_OUTPUT':  // ← 新增：保存节点2完整输出
+    case 'SET_NODE2_OUTPUT':  // ← 保存节点2完整输出
       return { 
         ...state, 
         node2Output: action.payload,
-        planText: action.payload?.overallStyle || state.planText  // 同时更新 planText 用于显示
+        planText: action.payload?.fullReport || state.planText,  // 使用 fullReport
+        project: state.project ? { ...state.project, node2Output: action.payload } : null,  // 同步更新 project.node2Output
       };
     case 'RESET':
       return initialState;
@@ -301,20 +302,15 @@ export function ProjectProvider({ children }: { children: ReactNode }) {
                 break;
                 
               case 'node1_complete': {
-                // 防御性处理：解包可能的 {infoAnalysisResult: ...} 包装
-                let node1Data = sseMessage.data;
-                if (node1Data?.infoAnalysisResult) {
-                  console.warn('[SSE] node1_complete data is wrapped, unwrapping');
-                  node1Data = node1Data.infoAnalysisResult;
-                }
-                console.log('[SSE] node1_complete data keys:', Object.keys(node1Data));
-                // 从分析结果中提取产品名称，自动更新项目名
-                const analyzedName1 = node1Data?.basicInfo?.name;
+                const node1Data = sseMessage.data;
+                console.log('[SSE] node1_complete: visionReports:', node1Data?.visionReports?.length);
+                // 从 productInfo 中获取商品名称
+                const analyzedName1 = node1Data?.productInfo?.name;
                 dispatch({
                   type: 'SET_PROJECT',
                   payload: {
                     projectId: id,
-                    project: { ...project, productInfo: node1Data, ...(analyzedName1 ? { name: analyzedName1 } : {}) },
+                    project: { ...project, node1Output: node1Data, ...(analyzedName1 ? { name: analyzedName1 } : {}) },
                   },
                 });
                 break;
@@ -478,20 +474,17 @@ export function ProjectProvider({ children }: { children: ReactNode }) {
                 break;
                 
               case 'node1_complete': {
-                let node1Data = sseMessage.data;
-                if (node1Data?.infoAnalysisResult) {
-                  node1Data = node1Data.infoAnalysisResult;
-                }
-                console.log('[SSE] node1_complete data keys:', Object.keys(node1Data));
-                // 从分析结果中提取产品名称，自动更新项目名
-                const analyzedName2 = node1Data?.basicInfo?.name;
-                // 更新当前项目的 productInfo（使用 ref 获取最新 project，避免闭包过期）
+                const node1Data = sseMessage.data;
+                console.log('[SSE] node1_complete: visionReports:', node1Data?.visionReports?.length);
+                // 从 productInfo 中获取商品名称
+                const analyzedName2 = node1Data?.productInfo?.name;
+                // 更新当前项目的 node1Output（使用 ref 获取最新 project，避免闭包过期）
                 const currentProject = projectRef.current;
                 dispatch({
                   type: 'SET_PROJECT',
                   payload: {
                     projectId,
-                    project: { ...(currentProject || { id: projectId, name: '', platform: '', status: '', productInfo: {}, node1Output: null, node2Output: null, node3Output: null, screens: [] }), productInfo: node1Data, ...(analyzedName2 ? { name: analyzedName2 } : {}) },
+                    project: { ...(currentProject || { id: projectId, name: '', platform: '', status: '', productInfo: {}, node1Output: null, node2Output: null, node3Output: null, screens: [] }), node1Output: node1Data, ...(analyzedName2 ? { name: analyzedName2 } : {}) },
                   },
                 });
                 break;
@@ -687,7 +680,7 @@ export function ProjectProvider({ children }: { children: ReactNode }) {
       // 将后端字段映射到前端状态结构
       const mappedProject = {
         ...project,
-        // 如果项目已完成（有生成的屏），直接加载 productInfo 避免显示加载状态
+        // 如果项目已完成（有生成的屏），直接加载 productInfo/node1Output 避免显示加载状态
         // 如果是新项目或未完成的项目，设为 null 以触发流式渲染效果
         node1Output: project.screens && project.screens.some((s: any) => s.imageUrl)
           ? (project.infoAnalysisResult || null)  // 已完成：加载已有数据
@@ -698,8 +691,8 @@ export function ProjectProvider({ children }: { children: ReactNode }) {
       dispatch({ type: 'SET_PROJECT', payload: { projectId: id, project: mappedProject } });
       
       // 恢复设计规划文本
-      if (project.designPlanResult?.overallStyle) {
-        dispatch({ type: 'SET_PLAN_TEXT', payload: project.designPlanResult.overallStyle });
+      if (project.designPlanResult?.fullReport) {
+        dispatch({ type: 'SET_PLAN_TEXT', payload: project.designPlanResult.fullReport });
       }
       
       // ← Layer 3: 根据数据完整性精细判断当前应该处于哪个步骤

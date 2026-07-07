@@ -11,6 +11,19 @@ import {
 import type { ImageGenResult } from '../adapters/image.adapter';
 
 /**
+ * 保存调试日志到 Markdown 文件
+ */
+function saveDebugLog(filename: string, content: string) {
+  const debugDir = path.join(config.upload.dir, 'debug-logs');
+  if (!fs.existsSync(debugDir)) {
+    fs.mkdirSync(debugDir, { recursive: true });
+  }
+  const filePath = path.join(debugDir, filename);
+  fs.writeFileSync(filePath, content, 'utf-8');
+  console.log(`[DEBUG] Saved to ${filePath}`);
+}
+
+/**
  * 下载远程图片到本地 uploads/{projectId} 目录，按规范命名
  */
 async function downloadImage(params: {
@@ -63,6 +76,10 @@ export async function generateScreenImage(params: {
   const platform = params.platform || 'domestic';
   const { apiSize, targetWidth, targetHeight } = PLATFORM_SIZE_MAP[platform];
 
+  // [DEBUG] Save Node4 screen input to file
+  const node4InputContent = `# Node4 Screen ${params.screenIndex + 1} Input\n\n## Prompt\n\`\`\`\n${params.prompt}\n\`\`\`\n\n## Reference Images\n${params.referenceImages?.map((url, i) => `${i + 1}. ${url}`).join('\n') || 'None'}\n\n## Metadata\n- projectId: ${params.projectId}\n- screenLabel: ${params.screenLabel}\n- versionNumber: ${params.versionNumber}\n- platform: ${platform}\n- apiSize: ${apiSize}`;
+  saveDebugLog(`node4-screen-${params.screenIndex + 1}-input.md`, node4InputContent);
+
   const results: ImageGenResult[] = await generateWithQwenImage({
     prompt: params.prompt,
     referenceImages: params.referenceImages,
@@ -73,6 +90,10 @@ export async function generateScreenImage(params: {
   if (!results.length || !results[0].url) {
     throw new Error('图像生成返回空结果');
   }
+
+  // [DEBUG] Save Node4 screen output to file
+  const node4OutputContent = `# Node4 Screen ${params.screenIndex + 1} Output\n\n## Generated Image URL\n\`\`\`\n${results[0].url}\n\`\`\``;
+  saveDebugLog(`node4-screen-${params.screenIndex + 1}-output.md`, node4OutputContent);
 
   // 下载图片到本地项目子目录
   const localPath = await downloadImage({
