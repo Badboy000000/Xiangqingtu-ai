@@ -398,6 +398,7 @@ export async function runNode4(projectId: string, screenIndex: number) {
       projectId,
       screenLabel: screen.label,
       versionNumber,
+      platform: project.platform as 'domestic' | 'overseas',
     });
 
     // 版本记录写入独立表

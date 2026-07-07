@@ -1,7 +1,13 @@
 import * as fs from 'fs';
 import * as path from 'path';
 import { config } from '../config';
-import { generateWithSeedream, generateWithGPTImage2, generateWithQwenImage } from '../adapters/image.adapter';
+import {
+  generateWithSeedream,
+  generateWithGPTImage2,
+  generateWithQwenImage,
+  PLATFORM_SIZE_MAP,
+  validateAndCropImage,
+} from '../adapters/image.adapter';
 import type { ImageGenResult } from '../adapters/image.adapter';
 
 /**
@@ -52,11 +58,15 @@ export async function generateScreenImage(params: {
   projectId: string;
   screenLabel: string;
   versionNumber: number;
+  platform?: 'domestic' | 'overseas';
 }): Promise<{ imageUrl: string; originalUrl: string }> {
+  const platform = params.platform || 'domestic';
+  const { apiSize, targetWidth, targetHeight } = PLATFORM_SIZE_MAP[platform];
+
   const results: ImageGenResult[] = await generateWithQwenImage({
     prompt: params.prompt,
     referenceImages: params.referenceImages,
-    size: '1024*1792', // 9:16 ratio ≈ 750:1500
+    size: apiSize,
     watermark: false,
   });
 
@@ -71,6 +81,9 @@ export async function generateScreenImage(params: {
     screenLabel: params.screenLabel,
     versionNumber: params.versionNumber,
   });
+
+  // 校验尺寸并裁剪到平台标准尺寸
+  await validateAndCropImage(localPath, targetWidth, targetHeight);
 
   return {
     imageUrl: localPath,
@@ -123,10 +136,17 @@ export async function generateScreenImageFallback(params: {
   projectId: string;
   screenLabel: string;
   versionNumber: number;
+  platform?: 'domestic' | 'overseas';
 }): Promise<{ imageUrl: string; originalUrl: string }> {
+  const platform = params.platform || 'domestic';
+  const { targetWidth, targetHeight } = PLATFORM_SIZE_MAP[platform];
+
+  // GPT Image 2 使用与平台标准一致的尺寸
+  const gptSize = platform === 'overseas' ? '1464x600' : '790x1400';
+
   const results = await generateWithGPTImage2({
     prompt: params.prompt,
-    size: '1024x1536',
+    size: gptSize,
   });
 
   if (!results.length) {
@@ -140,6 +160,9 @@ export async function generateScreenImageFallback(params: {
     versionNumber: params.versionNumber,
   });
 
+  // 校验尺寸并裁剪到平台标准尺寸
+  await validateAndCropImage(localPath, targetWidth, targetHeight);
+
   return {
     imageUrl: localPath,
     originalUrl: results[0].url,
@@ -147,10 +170,7 @@ export async function generateScreenImageFallback(params: {
 }
 
 /**
- * 智能生图：qwen-image 优先，失败时自动降级 Seedream → GPT Image 2
- * - qwen-image 为主方案，内容审核相对宽松
- * - Seedream 为备选 A（需切换时可用）
- * - GPT Image 2 为备选 B（柴犬平台）
+ * 智能生图：qwen-image 优先，失败时自动降级 GPT Image 2
  */
 export async function generateScreenImageSmart(params: {
   prompt: string;
@@ -159,6 +179,7 @@ export async function generateScreenImageSmart(params: {
   projectId: string;
   screenLabel: string;
   versionNumber: number;
+  platform?: 'domestic' | 'overseas';
 }): Promise<{ imageUrl: string; originalUrl: string }> {
   try {
     console.log(`[Node4] 屏${params.screenIndex} 尝试阿里百炼 qwen-image 生图...`);
@@ -169,7 +190,7 @@ export async function generateScreenImageSmart(params: {
     const errMsg = err.message || '';
     console.warn(`[Node4] 屏${params.screenIndex} qwen-image 失败: ${errMsg}`);
 
-    // 尝试 GPT Image 2 兆底
+    // 尝试 GPT Image 2 兜底
     try {
       console.warn(`[Node4] 屏${params.screenIndex} 自动切换 GPT Image 2 重试...`);
       const result = await generateScreenImageFallback({
@@ -178,6 +199,7 @@ export async function generateScreenImageSmart(params: {
         projectId: params.projectId,
         screenLabel: params.screenLabel,
         versionNumber: params.versionNumber,
+        platform: params.platform,
       });
       console.log(`[Node4] 屏${params.screenIndex} GPT Image 2 生图成功`);
       return result;
