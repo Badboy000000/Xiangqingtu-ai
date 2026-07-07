@@ -2,14 +2,14 @@ import OpenAI from 'openai';
 import { config } from '../config';
 
 /** 当前 LLM 模型名称（供启动日志等外部引用） */
-export const LLM_MODEL_NAME = 'qwen3.5-plus';
+export const LLM_MODEL_NAME = 'qwen3.7-plus';
 /** 当前 LLM 服务平台标签 */
 export const LLM_PROVIDER_LABEL = '阿里百炼';
 
 /** 默认 LLM 请求超时（毫秒） */
 const DEFAULT_TIMEOUT_MS = 120_000;
 
-// 阿里百炼 qwen3.5-plus（当前启用）
+// 阿里百炼 qwen3.7-plus（当前启用）
 const client = new OpenAI({
   baseURL: config.bailian.baseUrl,
   apiKey: config.bailian.apiKey,
@@ -27,7 +27,7 @@ export interface ChatMessage {
 }
 
 /**
- * 调用 qwen3.5-plus chat completions（非流式）
+ * 调用 qwen3.7-plus chat completions（非流式）
  * 支持超时控制（默认 120s）和结构化日志
  */
 export async function chatCompletion(
@@ -38,12 +38,12 @@ export async function chatCompletion(
   const jsonMode = options?.jsonMode ?? false;
 
   const params: Record<string, any> = {
-    model: LLM_MODEL_NAME, // qwen3.5-plus
+    model: LLM_MODEL_NAME, // qwen3.7-plus
     messages: messages as OpenAI.ChatCompletionMessageParam[],
     temperature: options?.temperature ?? 0.7,
     max_tokens: options?.maxTokens,
     stream: false,
-    // 关闭 qwen3.5 思考模式，避免 reasoning_content 干扰输出
+    // 关闭 qwen3.7 思考模式，避免 reasoning_content 干扰输出
     enable_thinking: false,
   };
 
@@ -81,7 +81,7 @@ export async function chatCompletion(
 }
 
 /**
- * 调用 qwen3.5-plus chat completions（流式）
+ * 调用 qwen3.7-plus chat completions（流式）
  */
 export async function chatCompletionStream(
   messages: ChatMessage[],
@@ -91,12 +91,12 @@ export async function chatCompletionStream(
   console.log(`[LLM] Calling ${LLM_MODEL_NAME} (mode=stream)...`);
 
   const stream = await client.chat.completions.create({
-    model: LLM_MODEL_NAME, // qwen3.5-plus
+    model: LLM_MODEL_NAME, // qwen3.7-plus
     messages: messages as OpenAI.ChatCompletionMessageParam[],
     temperature: options?.temperature ?? 0.7,
     max_tokens: options?.maxTokens,
     stream: true,
-    // 关闭 qwen3.5 思考模式，避免 reasoning_content 干扰输出
+    // 关闭 qwen3.7 思考模式，避免 reasoning_content 干扰输出
     enable_thinking: false,
   } as OpenAI.ChatCompletionCreateParamsStreaming);
 
@@ -114,7 +114,7 @@ export async function chatCompletionStream(
 }
 
 /**
- * 调用 qwen3.5-plus 并期望 JSON 结构化输出（非流式）
+ * 调用 qwen3.7-plus 并期望 JSON 结构化输出（非流式）
  * 自动重试最多 2 次（应对模型偶尔不遵循指令）
  */
 export async function chatCompletionJSON<T>(
@@ -149,7 +149,7 @@ export async function chatCompletionJSON<T>(
 }
 
 /**
- * 调用 qwen3.5-plus 流式 + JSON 模式，逐块收集内容并提供进度回调
+ * 调用 qwen3.7-plus 流式 + JSON 模式，逐块收集内容并提供进度回调
  * 阿里百炼 OpenAI-compatible API 支持 stream + json_object 组合
  * 自动重试最多 2 次
  */

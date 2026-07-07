@@ -1,24 +1,9 @@
-import * as fs from 'fs';
-import * as path from 'path';
 import { chatCompletion } from '../adapters/llm.adapter';
 import { analyzeImages } from '../adapters/vision.adapter';
 import { loadPrompt } from '../prompts/prompt-loader';
 import type { Node1Output, ProductInfo, VisionReport } from '../types';
 import type { ChatMessage } from '../adapters/llm.adapter';
-import { config } from '../config';
-
-/**
- * 保存调试日志到 Markdown 文件
- */
-function saveDebugLog(filename: string, content: string) {
-  const debugDir = path.join(config.upload.dir, 'debug-logs');
-  if (!fs.existsSync(debugDir)) {
-    fs.mkdirSync(debugDir, { recursive: true });
-  }
-  const filePath = path.join(debugDir, filename);
-  fs.writeFileSync(filePath, content, 'utf-8');
-  console.log(`[DEBUG] Saved to ${filePath}`);
-}
+import { saveDebugLog } from '../utils/debug-logger';
 
 /**
  * 节点1: 逐图多模态分析 + 无图降级
@@ -30,6 +15,7 @@ function saveDebugLog(filename: string, content: string) {
  */
 export async function analyzeProductInfo(
   productInfo: ProductInfo,
+  projectId: string,
 ): Promise<Node1Output> {
   const screenCount = productInfo.screenCount || 8;
   const visionReports: VisionReport[] = [];
@@ -48,15 +34,15 @@ export async function analyzeProductInfo(
         console.log(`[Node1] Analyzing image ${i}: ${url}`);
   
         // [DEBUG] Save per-image vision input
-        saveDebugLog(`node1-image-analysis-${i}-input.md`,
+        saveDebugLog(projectId, `node1-image-analysis-${i}-input.md`,
           `# Node1 Vision Image ${i} Input\n\n## Image\n${url}\n\n## Product Context\n\`\`\`markdown\n${userContext}\n\`\`\`\n\n## Prompt\n\`\`\`markdown\n${visionPrompt}\n\`\`\``
         );
   
         // 逐图调用：每次传 1张图 + 表单数据 + 提示词
-        const analysis = await analyzeImages([url], visionPrompt, userContext);
+        const analysis = await analyzeImages([url], visionPrompt, userContext, projectId);
 
         // [DEBUG] Save per-image vision output
-        saveDebugLog(`node1-image-analysis-${i}-output.md`,
+        saveDebugLog(projectId, `node1-image-analysis-${i}-output.md`,
           `# Node1 Vision Image ${i} Output\n\n\`\`\`markdown\n${analysis}\n\`\`\``
         );
 
@@ -71,7 +57,7 @@ export async function analyzeProductInfo(
     // ── 无参考图：纯文本降级分析 ──
     console.log(`[Node1] No reference images, falling back to text-only analysis`);
 
-    const textAnalysis = await analyzeTextOnly(productInfo, screenCount);
+    const textAnalysis = await analyzeTextOnly(productInfo, screenCount, projectId);
     visionReports.push({ imageIndex: -1, imageUrl: '', analysis: textAnalysis });
 
     console.log(`[Node1] Text-only analysis done: ${textAnalysis.length} chars`);
@@ -112,6 +98,7 @@ ${sellingPointsFormatted}
 async function analyzeTextOnly(
   productInfo: ProductInfo,
   screenCount: number,
+  projectId: string,
 ): Promise<string> {
   const systemPrompt = loadPrompt('node1-text-fallback', { screenCount });
 
@@ -136,7 +123,7 @@ ${sellingPointsFormatted}
 请根据以上信息，整理商品核心信息并规划 ${screenCount} 屏详情页设计方案。`;
 
   // [DEBUG] Save text-only input
-  saveDebugLog('node1-text-input.md',
+  saveDebugLog(projectId, 'node1-text-input.md',
     `# Node1 Text-Only Input\n\n## System Prompt\n\`\`\`markdown\n${systemPrompt}\n\`\`\`\n\n## User Content\n\`\`\`markdown\n${userContent}\n\`\`\``
   );
 
@@ -148,7 +135,7 @@ ${sellingPointsFormatted}
   const result = await chatCompletion(messages, { temperature: 0.5 });
 
   // [DEBUG] Save text-only output
-  saveDebugLog('node1-text-output.md',
+  saveDebugLog(projectId, 'node1-text-output.md',
     `# Node1 Text-Only Output\n\n\`\`\`markdown\n${result}\n\`\`\``
   );
 

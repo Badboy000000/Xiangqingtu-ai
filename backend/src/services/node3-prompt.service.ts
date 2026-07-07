@@ -1,23 +1,8 @@
-import * as fs from 'fs';
-import * as path from 'path';
 import { chatCompletion, chatCompletionStreamJSON, chatCompletionJSON } from '../adapters/llm.adapter';
 import { loadPrompt } from '../prompts/prompt-loader';
 import type { ScreenPrompt } from '../types';
 import type { ChatMessage } from '../adapters/llm.adapter';
-import { config } from '../config';
-
-/**
- * 保存调试日志到 Markdown 文件
- */
-function saveDebugLog(filename: string, content: string) {
-  const debugDir = path.join(config.upload.dir, 'debug-logs');
-  if (!fs.existsSync(debugDir)) {
-    fs.mkdirSync(debugDir, { recursive: true });
-  }
-  const filePath = path.join(debugDir, filename);
-  fs.writeFileSync(filePath, content, 'utf-8');
-  console.log(`[DEBUG] Saved to ${filePath}`);
-}
+import { saveDebugLog } from '../utils/debug-logger';
 
 /**
  * 生成单屏生图提示词（五层骨架，每屏独立调用）
@@ -32,9 +17,10 @@ export async function generateSingleScreenPrompt(params: {
   node2FullReport: string;       // Node2 完整统一决策报告（唯一权威来源）
   screenIndex: number;           // 当前屏序号（0-based）
   totalScreens: number;
+  projectId?: string;            // 项目ID，用于按项目分类存储调试日志
   onProgress?: (chunk: string, totalLength: number) => void;
 }): Promise<ScreenPrompt> {
-  const { node2FullReport, screenIndex, totalScreens, onProgress } = params;
+  const { node2FullReport, screenIndex, totalScreens, projectId, onProgress } = params;
 
   const systemPrompt = loadPrompt('node3-system');
 
@@ -52,9 +38,11 @@ ${node2FullReport}
 输出 JSON 格式（单个对象，不是数组）。`;
 
   // [DEBUG] Save Node3 screen input
-  saveDebugLog(`node3-screen-${screenIndex + 1}-input.md`,
-    `# Node3 Screen ${screenIndex + 1} LLM Input\n\n## System Prompt\n\`\`\`markdown\n${systemPrompt}\n\`\`\`\n\n## User Content\n\`\`\`markdown\n${userContent}\n\`\`\``
-  );
+  if (projectId) {
+    saveDebugLog(projectId, `node3-screen-${screenIndex + 1}-input.md`,
+      `# Node3 Screen ${screenIndex + 1} LLM Input\n\n## System Prompt\n\`\`\`markdown\n${systemPrompt}\n\`\`\`\n\n## User Content\n\`\`\`markdown\n${userContent}\n\`\`\``
+    );
+  }
 
   const messages: ChatMessage[] = [
     { role: 'system', content: systemPrompt },
@@ -87,9 +75,11 @@ ${node2FullReport}
   }
 
   // [DEBUG] Save Node3 screen output
-  saveDebugLog(`node3-screen-${screenIndex + 1}-output.md`,
-    `# Node3 Screen ${screenIndex + 1} LLM Output\n\n\`\`\`json\n${JSON.stringify(result, null, 2)}\n\`\`\``
-  );
+  if (projectId) {
+    saveDebugLog(projectId, `node3-screen-${screenIndex + 1}-output.md`,
+      `# Node3 Screen ${screenIndex + 1} LLM Output\n\n\`\`\`json\n${JSON.stringify(result, null, 2)}\n\`\`\``
+    );
+  }
 
   // 语义校验：prompt 必须非空且达到最低长度
   if (!result.prompt || result.prompt.trim().length < 80) {

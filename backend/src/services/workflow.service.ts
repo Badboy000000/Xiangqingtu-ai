@@ -52,7 +52,7 @@ export async function runNode1(projectId: string): Promise<Node1Output> {
   await project.update({ status: 'analyzing' });
 
   try {
-    const infoAnalysisResult = await analyzeProductInfo(productInfo);
+    const infoAnalysisResult = await analyzeProductInfo(productInfo, projectId);
 
     console.log(`[Node1] Result: ${infoAnalysisResult.visionReports.length} vision reports`);
 
@@ -82,7 +82,7 @@ export async function runNode2(projectId: string): Promise<Node2Output> {
   await project.update({ status: 'planning' });
 
   try {
-    const node2Output = await generateDesignPlan(project.infoAnalysisResult, project.screenCount);
+    const node2Output = await generateDesignPlan(project.infoAnalysisResult, project.screenCount, projectId);
 
     console.log(`[Node2] Report generated: ${node2Output.fullReport.length} chars`);
 
@@ -142,6 +142,7 @@ export async function runNode3(projectId: string, callbacks?: Node3Callbacks) {
             node2FullReport,
             screenIndex: i,
             totalScreens,
+            projectId,
             onProgress: (chunk, totalLen) => {
               callbacks?.onScreenProgress?.(i, totalLen);
             },

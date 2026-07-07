@@ -9,19 +9,7 @@ import {
   validateAndCropImage,
 } from '../adapters/image.adapter';
 import type { ImageGenResult } from '../adapters/image.adapter';
-
-/**
- * 保存调试日志到 Markdown 文件
- */
-function saveDebugLog(filename: string, content: string) {
-  const debugDir = path.join(config.upload.dir, 'debug-logs');
-  if (!fs.existsSync(debugDir)) {
-    fs.mkdirSync(debugDir, { recursive: true });
-  }
-  const filePath = path.join(debugDir, filename);
-  fs.writeFileSync(filePath, content, 'utf-8');
-  console.log(`[DEBUG] Saved to ${filePath}`);
-}
+import { saveDebugLog } from '../utils/debug-logger';
 
 /**
  * 下载远程图片到本地 uploads/{projectId} 目录，按规范命名
@@ -62,7 +50,7 @@ async function downloadImage(params: {
 }
 
 /**
- * 节点4: 单屏生图（主方案：阿里百炼 qwen-image-2.0）
+ * 节点4: 单屏生图（主方案：阿里百炼 wan2.7-image-pro）
  */
 export async function generateScreenImage(params: {
   prompt: string;
@@ -79,7 +67,7 @@ export async function generateScreenImage(params: {
 
   // [DEBUG] Save Node4 screen input to file
   const node4InputContent = `# Node4 Screen ${params.screenIndex + 1} Input\n\n## Prompt\n\`\`\`\n${params.prompt}\n\`\`\`\n\n## Reference Images\n${params.referenceImages?.map((url, i) => `${i + 1}. ${url}${params.referenceIndices?.[i] !== undefined ? ` (原索引${params.referenceIndices[i]})` : ''}`).join('\n') || 'None'}\n\n## Metadata\n- projectId: ${params.projectId}\n- screenLabel: ${params.screenLabel}\n- versionNumber: ${params.versionNumber}\n- platform: ${platform}\n- apiSize: ${apiSize}`;
-  saveDebugLog(`node4-screen-${params.screenIndex + 1}-input.md`, node4InputContent);
+  saveDebugLog(params.projectId, `node4-screen-${params.screenIndex + 1}-input.md`, node4InputContent);
 
   const results: ImageGenResult[] = await generateWithQwenImage({
     prompt: params.prompt,
@@ -95,7 +83,7 @@ export async function generateScreenImage(params: {
 
   // [DEBUG] Save Node4 screen output to file
   const node4OutputContent = `# Node4 Screen ${params.screenIndex + 1} Output\n\n## Generated Image URL\n\`\`\`\n${results[0].url}\n\`\`\``;
-  saveDebugLog(`node4-screen-${params.screenIndex + 1}-output.md`, node4OutputContent);
+  saveDebugLog(params.projectId, `node4-screen-${params.screenIndex + 1}-output.md`, node4OutputContent);
 
   // 下载图片到本地项目子目录
   const localPath = await downloadImage({
@@ -193,7 +181,7 @@ export async function generateScreenImageFallback(params: {
 }
 
 /**
- * 智能生图：qwen-image 优先，失败时自动降级 GPT Image 2
+ * 智能生图：wan2.7-image-pro 优先，失败时自动降级 GPT Image 2
  */
 export async function generateScreenImageSmart(params: {
   prompt: string;
@@ -206,13 +194,13 @@ export async function generateScreenImageSmart(params: {
   platform?: 'domestic' | 'overseas';
 }): Promise<{ imageUrl: string; originalUrl: string }> {
   try {
-    console.log(`[Node4] 屏${params.screenIndex} 尝试阿里百炼 qwen-image 生图...`);
+    console.log(`[Node4] 屏${params.screenIndex} 尝试阿里百炼 wan2.7 生图...`);
     const result = await generateScreenImage(params);
-    console.log(`[Node4] 屏${params.screenIndex} qwen-image 生图成功`);
+    console.log(`[Node4] 屏${params.screenIndex} wan2.7 生图成功`);
     return result;
   } catch (err: any) {
     const errMsg = err.message || '';
-    console.warn(`[Node4] 屏${params.screenIndex} qwen-image 失败: ${errMsg}`);
+    console.warn(`[Node4] 屏${params.screenIndex} wan2.7 失败: ${errMsg}`);
 
     // 尝试 GPT Image 2 兜底
     try {
@@ -229,7 +217,7 @@ export async function generateScreenImageSmart(params: {
       return result;
     } catch (fallbackErr: any) {
       console.error(`[Node4] 屏${params.screenIndex} GPT Image 2 也失败: ${fallbackErr.message}`);
-      throw new Error(`所有生图方案均失败: qwen-image: ${errMsg}, GPT Image 2: ${fallbackErr.message}`);
+      throw new Error(`所有生图方案均失败: wan2.7: ${errMsg}, GPT Image 2: ${fallbackErr.message}`);
     }
   }
 }

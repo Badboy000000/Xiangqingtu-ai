@@ -38,17 +38,17 @@ export const config = {
     apiKey: process.env.ARK_API_KEY || '',
   },
 
-  // 阿里百炼 (qwen3.5-plus LLM + 多模态视觉理解)
+  // 阿里百炼 (qwen3.7-plus LLM + 多模态视觉理解)
   bailian: {
     baseUrl: process.env.BAILIAN_BASE_URL || '',
     apiKey: process.env.BAILIAN_API_KEY || '',
   },
 
-  // 阿里百炼图像生成 (qwen-image-2.0 系列)
+  // 阿里百炼图像生成 (wan2.7-image-pro 系列)
   bailianImage: {
     baseUrl: process.env.BAILIAN_IMAGE_BASE_URL || '',
     apiKey: process.env.BAILIAN_IMAGE_API_KEY || process.env.BAILIAN_API_KEY || '',
-    model: process.env.BAILIAN_IMAGE_MODEL || 'qwen-image-2.0-2026-03-03',
+    model: process.env.BAILIAN_IMAGE_MODEL || 'wan2.7-image-pro',
   },
 
   jwt: {

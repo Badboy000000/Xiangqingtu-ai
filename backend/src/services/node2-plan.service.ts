@@ -1,23 +1,8 @@
-import * as fs from 'fs';
-import * as path from 'path';
 import { chatCompletion } from '../adapters/llm.adapter';
 import { loadPrompt } from '../prompts/prompt-loader';
 import type { Node1Output, Node2Output } from '../types';
 import type { ChatMessage } from '../adapters/llm.adapter';
-import { config } from '../config';
-
-/**
- * 保存调试日志到 Markdown 文件
- */
-function saveDebugLog(filename: string, content: string) {
-  const debugDir = path.join(config.upload.dir, 'debug-logs');
-  if (!fs.existsSync(debugDir)) {
-    fs.mkdirSync(debugDir, { recursive: true });
-  }
-  const filePath = path.join(debugDir, filename);
-  fs.writeFileSync(filePath, content, 'utf-8');
-  console.log(`[DEBUG] Saved to ${filePath}`);
-}
+import { saveDebugLog } from '../utils/debug-logger';
 
 /**
  * 节点2: 交叉印证 + 统一决策
@@ -30,6 +15,7 @@ function saveDebugLog(filename: string, content: string) {
 export async function generateDesignPlan(
   node1Output: Node1Output,
   screenCount: number = 8,
+  projectId?: string,
 ): Promise<Node2Output> {
   // ── 构建 user content：完整传入所有视觉分析报告 ──
   const reportsSection = node1Output.visionReports.map((r, i) => {
@@ -72,9 +58,11 @@ ${reportsSection}
 
   // [DEBUG] Save Node2 input
   const systemPrompt = loadPrompt('node2-system', { screenCount });
-  saveDebugLog('node2-input.md',
-    `# Node2 LLM Input\n\n## System Prompt\n\`\`\`markdown\n${systemPrompt}\n\`\`\`\n\n## User Content\n\`\`\`markdown\n${userContent}\n\`\`\``
-  );
+  if (projectId) {
+    saveDebugLog(projectId, 'node2-input.md',
+      `# Node2 LLM Input\n\n## System Prompt\n\`\`\`markdown\n${systemPrompt}\n\`\`\`\n\n## User Content\n\`\`\`markdown\n${userContent}\n\`\`\``
+    );
+  }
 
   const messages: ChatMessage[] = [
     { role: 'system', content: systemPrompt },
@@ -86,14 +74,16 @@ ${reportsSection}
   const fullReport = await chatCompletion(messages, { temperature: 0.7 });
 
   // [DEBUG] Save Node2 output
-  saveDebugLog('node2-output.md',
-    `# Node2 LLM Output\n\n\`\`\`markdown\n${fullReport}\n\`\`\``
-  );
+  if (projectId) {
+    saveDebugLog(projectId, 'node2-output.md',
+      `# Node2 LLM Output\n\n\`\`\`markdown\n${fullReport}\n\`\`\``
+    );
+  }
 
   console.log(`[Node2] Report generated: ${fullReport.length} chars`);
 
   // ── 校验屏数是否匹配 ──
-  const validatedReport = await validateAndFixScreenCount(fullReport, screenCount, messages);
+  const validatedReport = await validateAndFixScreenCount(fullReport, screenCount, messages, projectId);
 
   return { fullReport: validatedReport };
 }
@@ -132,6 +122,7 @@ async function validateAndFixScreenCount(
   report: string,
   expectedCount: number,
   originalMessages: ChatMessage[],
+  projectId?: string,
 ): Promise<string> {
   const actualCount = parseActualScreenCount(report);
   
@@ -194,9 +185,11 @@ ${missingScreens.map(n => `
   }
   
   // [DEBUG] Save fixed output
-  saveDebugLog('node2-output-fixed.md',
-    `# Node2 Fixed Output\n\n\`\`\`markdown\n${fixedReport}\n\`\`\``
-  );
+  if (projectId) {
+    saveDebugLog(projectId, 'node2-output-fixed.md',
+      `# Node2 Fixed Output\n\n\`\`\`markdown\n${fixedReport}\n\`\`\``
+    );
+  }
   
   return fixedReport;
 }

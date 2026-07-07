@@ -3,22 +3,9 @@ import { config } from '../config';
 import { LLM_MODEL_NAME } from './llm.adapter';
 import * as path from 'path';
 import sharp from 'sharp';
-import * as fs from 'fs';
+import { saveDebugLog } from '../utils/debug-logger';
 
-/**
- * 保存调试日志到 Markdown 文件
- */
-function saveDebugLog(filename: string, content: string) {
-  const debugDir = path.join(config.upload.dir, 'debug-logs');
-  if (!fs.existsSync(debugDir)) {
-    fs.mkdirSync(debugDir, { recursive: true });
-  }
-  const filePath = path.join(debugDir, filename);
-  fs.writeFileSync(filePath, content, 'utf-8');
-  console.log(`[DEBUG] Saved to ${filePath}`);
-}
-
-// 阿里百炼 qwen3.5-plus（当前启用）
+// 阿里百炼 qwen3.7-plus（当前启用）
 const client = new OpenAI({
   baseURL: config.bailian.baseUrl,
   apiKey: config.bailian.apiKey,
@@ -67,10 +54,13 @@ export async function analyzeImages(
   imagePaths: string[],
   prompt: string,
   userContext?: string,  // 可选：额外的文本上下文（如表单数据），与图片一起传入多模态消息
+  projectId?: string,    // 可选：项目ID，用于按项目分类存储调试日志
 ): Promise<string> {
   // [DEBUG] Save vision input to file
   const visionInputContent = `# Vision Analysis Input\n\n## Image Paths\n${imagePaths.map((p, i) => `${i + 1}. ${p}`).join('\n')}\n\n## User Context\n\`\`\`markdown\n${userContext || '(无)'}\n\`\`\`\n\n## Prompt\n\`\`\`markdown\n${prompt}\n\`\`\``;
-  saveDebugLog('node1-image-analysis-input.md', visionInputContent);
+  if (projectId) {
+    saveDebugLog(projectId, 'node1-image-analysis-input.md', visionInputContent);
+  }
 
   const content: Array<{ type: string; text?: string; image_url?: { url: string } }> = [];
 
@@ -96,7 +86,7 @@ export async function analyzeImages(
   content.push({ type: 'text', text: prompt });
 
   const completion = await client.chat.completions.create({
-    model: LLM_MODEL_NAME, // qwen3.5-plus
+    model: LLM_MODEL_NAME, // qwen3.7-plus
     messages: [
       {
         role: 'user',
@@ -105,14 +95,16 @@ export async function analyzeImages(
     ],
     temperature: 0.5,
     stream: false,
-    // 关闭 qwen3.5 思考模式，避免 reasoning_content 干扰输出
+    // 关闭 qwen3.7 思考模式，避免 reasoning_content 干扰输出
     enable_thinking: false,
   } as any);
 
   const result = completion.choices[0]?.message?.content || '';
 
   // [DEBUG] Save vision output to file
-  saveDebugLog('node1-image-analysis-output.md', `# Vision Analysis Output\n\n\`\`\`markdown\n${result}\n\`\`\``);
+  if (projectId) {
+    saveDebugLog(projectId, 'node1-image-analysis-output.md', `# Vision Analysis Output\n\n\`\`\`markdown\n${result}\n\`\`\``);
+  }
 
   return result;
 }
@@ -123,8 +115,9 @@ export async function analyzeImages(
 export async function analyzeImagesJSON<T>(
   imagePaths: string[],
   prompt: string,
+  projectId?: string,
 ): Promise<T> {
-  const content = await analyzeImages(imagePaths, prompt);
+  const content = await analyzeImages(imagePaths, prompt, undefined, projectId);
 
   let jsonStr = content;
   const codeBlockMatch = content.match(/```(?:json)?\s*([\s\S]*?)```/);

@@ -39,7 +39,7 @@ async function imageToCompressedBase64Url(filePath: string): Promise<string> {
 }
 
 /** 当前图像生成模型名称（供启动日志等外部引用） */
-export const IMAGE_MODEL_NAME = process.env.BAILIAN_IMAGE_MODEL || 'qwen-image-2.0-2026-03-03';
+export const IMAGE_MODEL_NAME = process.env.BAILIAN_IMAGE_MODEL || 'wan2.7-image-pro';
 /** 当前图像生成服务平台标签 */
 export const IMAGE_PROVIDER_LABEL = '阿里百炼';
 
@@ -117,7 +117,7 @@ export async function validateAndCropImage(
 /**
  * 百炼图像模型限流映射
  * 根据模型名称返回最小调用间隔（毫秒）
- * - pro / max 系列：2次/分钟 → 间隔 30 秒
+ * - pro / max 系列（如 wan2.7-image-pro）：2次/分钟 → 间隔 30 秒
  * - qwen-image / qwen-image-2.0 / plus / edit-plus：2次/秒 → 间隔 500ms
  * - qwen-mt-image：1次/秒 → 间隔 1000ms
  */
@@ -156,7 +156,7 @@ async function enforceRateLimit(model: string): Promise<void> {
   }
 }
 
-// ─── 阿里百炼 qwen-image (同步 API) ──────────────────────
+// ─── 阿里百炼 wan2.7-image-pro (同步 API) ────────────────────
 
 /**
  * 构建参考图顺序绑定声明
@@ -179,14 +179,14 @@ function buildOrderDeclaration(imageCount: number, referenceIndices?: number[]):
 }
 
 /**
- * 阿里百炼 qwen-image-2.0 系列 文生图 / 图生图（同步调用）
+ * 阿里百炼 wan2.7-image-pro 文生图 / 图生图（同步调用）
  *
  * API 协议与 OpenAI 不同：
  *   - 端点：POST {baseUrl}/generation
  *   - 请求体：{ model, input: { messages: [{ role, content }] }, parameters: { size, n, watermark } }
  *   - 响应体：{ output: { choices: [{ message: { content: [{ image, type }] } }] } }
  *
- * @see https://help.aliyun.com/zh/model-studio/qwen-image-edit-guide
+ * @see https://help.aliyun.com/zh/model-studio/wan-image-generation-api-reference
  */
 export async function generateWithQwenImage(params: {
   prompt: string;
