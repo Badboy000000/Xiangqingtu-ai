@@ -252,13 +252,14 @@ function parseRefImageIndices(report: string, screenIndex: number): number[] {
 /**
  * 获取单屏的参考图分配（智能分配）
  * 优先从 Node2 报告中解析该屏的参考图索引，回退到全量参考图
+ * 返回 urls 和对应的原始索引（用于构建顺序绑定声明）
  */
 async function getScreenReferenceImages(
   projectId: string,
   screenIndex: number,
   allReferenceImageUrls: string[] | null,
   node2Report?: string,
-): Promise<string[] | undefined> {
+): Promise<{ urls: string[]; indices: number[] } | undefined> {
   if (!allReferenceImageUrls?.length) return undefined;
 
   // 从 Node2 报告中解析该屏的参考图索引
@@ -269,9 +270,11 @@ async function getScreenReferenceImages(
         const selected = refIndices
           .map((i: number) => allReferenceImageUrls[i])
           .filter(Boolean);
+        const validIndices = refIndices
+          .filter((i: number) => allReferenceImageUrls[i] != null);
         if (selected.length > 0) {
           console.log(`[Node4] 屏${screenIndex} 智能分配参考图: ${refIndices.join(',')} → ${selected.length}张`);
-          return selected;
+          return { urls: selected, indices: validIndices };
         }
       }
     } catch (err: any) {
@@ -279,9 +282,12 @@ async function getScreenReferenceImages(
     }
   }
 
-  // 回退：全量参考图
+  // 回退：全量参考图（索引为 0,1,2,...）
   console.log(`[Node4] 屏${screenIndex} 使用全量参考图: ${allReferenceImageUrls.length}张`);
-  return allReferenceImageUrls;
+  return {
+    urls: allReferenceImageUrls,
+    indices: allReferenceImageUrls.map((_, i) => i),
+  };
 }
 
 /**
@@ -305,12 +311,14 @@ export async function runNode4(projectId: string, screenIndex: number) {
     const existingVersions = await ScreenVersion.count({ where: { screenId: screen.id } });
     const versionNumber = existingVersions + 1;
 
-    // 从 Node2 报告中解析参考图索引
+    // 从 Node2 报告中解析参考图索引和 URL
     const node2Report = project.designPlanResult?.fullReport || '';
-    const referenceImages = await getScreenReferenceImages(projectId, screenIndex, project.referenceImageUrls, node2Report);
+    const refResult = await getScreenReferenceImages(projectId, screenIndex, project.referenceImageUrls, node2Report);
+
     const result = await generateScreenImageSmart({
       prompt: screen.prompt,
-      referenceImages,
+      referenceImages: refResult?.urls,
+      referenceIndices: refResult?.indices,
       screenIndex,
       projectId,
       screenLabel: screen.label,

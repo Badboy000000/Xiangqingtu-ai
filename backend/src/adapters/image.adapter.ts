@@ -159,6 +159,26 @@ async function enforceRateLimit(model: string): Promise<void> {
 // ─── 阿里百炼 qwen-image (同步 API) ──────────────────────
 
 /**
+ * 构建参考图顺序绑定声明
+ * 在图片数组和文本提示词之间注入一条显式映射声明，
+ * 让模型明确知道 content[0] = 图1、content[1] = 图2 ...
+ *
+ * 示例输出："以下参考图按顺序依次为：图1(原索引0)，图2(原索引2)。后续指令中用"图N"引用对应图片。"
+ */
+function buildOrderDeclaration(imageCount: number, referenceIndices?: number[]): string | null {
+  if (imageCount === 0) return null;
+
+  const labels = Array.from({ length: imageCount }, (_, i) => {
+    const seqNum = i + 1; // 顺序编号从 1 开始
+    const origIdx = referenceIndices?.[i];
+    const originNote = origIdx !== undefined ? `(原索引${origIdx})` : '';
+    return `图${seqNum}${originNote}`;
+  });
+
+  return `以下参考图按顺序依次为：${labels.join('，')}。后续指令中用"图N"引用对应图片。`;
+}
+
+/**
  * 阿里百炼 qwen-image-2.0 系列 文生图 / 图生图（同步调用）
  *
  * API 协议与 OpenAI 不同：
@@ -171,11 +191,12 @@ async function enforceRateLimit(model: string): Promise<void> {
 export async function generateWithQwenImage(params: {
   prompt: string;
   referenceImages?: string[];  // 本地路径或 URL（最多 9 张）
+  referenceIndices?: number[]; // 每张参考图的原始 0-based 索引，用于构建顺序声明
   size?: string;               // 如 "1024*1792" (9:16) 或 "2K"
   n?: number;                  // 生成张数，最多 6
   watermark?: boolean;
 }): Promise<ImageGenResult[]> {
-  // 构建 content 数组：参考图在前，文本在后（百炼要求多图时按数组顺序定义）
+  // 构建 content 数组：参考图在前，顺序声明在中，文本在后
   const content: Array<Record<string, string>> = [];
 
   // 参考图（压缩后再 base64 编码，避免请求体过大）
@@ -186,6 +207,12 @@ export async function generateWithQwenImage(params: {
     images.forEach((img) => {
       content.push({ image: img });
     });
+
+    // 注入顺序绑定声明：在图片和提示词之间建立显式映射
+    const declaration = buildOrderDeclaration(images.length, params.referenceIndices);
+    if (declaration) {
+      content.push({ text: declaration });
+    }
   }
 
   // 文本提示词

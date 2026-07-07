@@ -67,6 +67,7 @@ async function downloadImage(params: {
 export async function generateScreenImage(params: {
   prompt: string;
   referenceImages?: string[];
+  referenceIndices?: number[];  // 每张参考图的原始 0-based 索引
   screenIndex: number;
   projectId: string;
   screenLabel: string;
@@ -77,12 +78,13 @@ export async function generateScreenImage(params: {
   const { apiSize, targetWidth, targetHeight } = PLATFORM_SIZE_MAP[platform];
 
   // [DEBUG] Save Node4 screen input to file
-  const node4InputContent = `# Node4 Screen ${params.screenIndex + 1} Input\n\n## Prompt\n\`\`\`\n${params.prompt}\n\`\`\`\n\n## Reference Images\n${params.referenceImages?.map((url, i) => `${i + 1}. ${url}`).join('\n') || 'None'}\n\n## Metadata\n- projectId: ${params.projectId}\n- screenLabel: ${params.screenLabel}\n- versionNumber: ${params.versionNumber}\n- platform: ${platform}\n- apiSize: ${apiSize}`;
+  const node4InputContent = `# Node4 Screen ${params.screenIndex + 1} Input\n\n## Prompt\n\`\`\`\n${params.prompt}\n\`\`\`\n\n## Reference Images\n${params.referenceImages?.map((url, i) => `${i + 1}. ${url}${params.referenceIndices?.[i] !== undefined ? ` (原索引${params.referenceIndices[i]})` : ''}`).join('\n') || 'None'}\n\n## Metadata\n- projectId: ${params.projectId}\n- screenLabel: ${params.screenLabel}\n- versionNumber: ${params.versionNumber}\n- platform: ${platform}\n- apiSize: ${apiSize}`;
   saveDebugLog(`node4-screen-${params.screenIndex + 1}-input.md`, node4InputContent);
 
   const results: ImageGenResult[] = await generateWithQwenImage({
     prompt: params.prompt,
     referenceImages: params.referenceImages,
+    referenceIndices: params.referenceIndices,
     size: apiSize,
     watermark: false,
   });
@@ -196,6 +198,7 @@ export async function generateScreenImageFallback(params: {
 export async function generateScreenImageSmart(params: {
   prompt: string;
   referenceImages?: string[];
+  referenceIndices?: number[];  // 每张参考图的原始 0-based 索引
   screenIndex: number;
   projectId: string;
   screenLabel: string;

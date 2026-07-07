@@ -40,6 +40,14 @@ export async function generateDesignPlan(
   }).join('\n\n---\n\n');
 
   const productInfo = node1Output.productInfo;
+  const sellingPointsList = (productInfo.sellingPoints || '')
+    .split(/[\n,，、]/)
+    .map(s => s.trim())
+    .filter(Boolean);
+  const sellingPointsText = sellingPointsList.length > 0
+    ? sellingPointsList.map((sp, i) => `  ${i + 1}. ${sp}`).join('\n')
+    : '未提供';
+
   const userContent = `## 商品信息
 - 产品名称: ${productInfo.name}
 - 品类: ${productInfo.category || '待识别'}
@@ -47,11 +55,14 @@ export async function generateDesignPlan(
 - 语种: ${productInfo.language || 'zh-CN'}
 - 材质: ${productInfo.material || '未指定'}
 - 产品规格参数: ${productInfo.productSpecs || '未指定'}
-- 卖点: ${productInfo.sellingPoints}
 - 目标人群: ${productInfo.targetAudience}
 - 价格区间: ${productInfo.priceRange}
 - 参考风格: ${productInfo.referenceStyle || '未指定'}
 - 设计要求: ${productInfo.designRequirements}
+
+## 核心卖点（以下卖点必须在最终方案中被全量视觉化呈现，禁止遗漏）
+
+${sellingPointsText}
 
 ## 多份视觉分析报告（交叉印证）
 
