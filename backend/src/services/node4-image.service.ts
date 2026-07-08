@@ -51,6 +51,14 @@ async function downloadImage(params: {
 }
 
 /**
+ * 清理原始 URL：base64 data URI 过长无法存入数据库，替换为本地路径
+ */
+function sanitizeOriginalUrl(url: string, fallback: string): string {
+  if (url.startsWith('data:')) return fallback;
+  return url;
+}
+
+/**
  * 节点4: 单屏生图（兜底方案：阿里百炼 wan2.7-image-pro）
  * 首次生图主链路已切换至 GPT Image 2，此函数仅用作 smart 分发失败时的降级
  */
@@ -100,7 +108,7 @@ export async function generateScreenImage(params: {
 
   return {
     imageUrl: localPath,
-    originalUrl: results[0].url,
+    originalUrl: sanitizeOriginalUrl(results[0].url, localPath),
   };
 }
 
@@ -136,7 +144,7 @@ export async function generateScreenImageSeedream(params: {
 
   return {
     imageUrl: localPath,
-    originalUrl: results[0].url,
+    originalUrl: sanitizeOriginalUrl(results[0].url, localPath),
   };
 }
 
@@ -186,7 +194,7 @@ export async function generateScreenImageFallback(params: {
 
   return {
     imageUrl: localPath,
-    originalUrl: results[0].url,
+    originalUrl: sanitizeOriginalUrl(results[0].url, localPath),
   };
 }
 
@@ -280,6 +288,6 @@ export async function editScreenImage(params: {
 
   return {
     imageUrl: localPath,
-    originalUrl: results[0].url,
+    originalUrl: sanitizeOriginalUrl(results[0].url, localPath),
   };
 }

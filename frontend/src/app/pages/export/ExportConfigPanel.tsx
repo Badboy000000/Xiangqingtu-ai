@@ -83,9 +83,13 @@ export function ExportConfigPanel({ screens, confirmed }: ExportConfigPanelProps
   useEffect(() => {
     if (state.exportResult?.outputUrl) {
       setDone(true);
+      
+      // 从 URL 提取完整文件名（如 export_6dcd8477_1783492240654.jpg）
+      const filename = state.exportResult.outputUrl.split('/').pop() || 'export.jpg';
+      
       const a = document.createElement('a');
       a.href = state.exportResult.outputUrl;
-      a.download = '';
+      a.download = filename;  // 设置正确的文件名和扩展名
       document.body.appendChild(a);
       a.click();
       document.body.removeChild(a);
