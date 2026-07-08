@@ -67,6 +67,7 @@ type Action =
   | { type: 'SET_PROJECT_LOADING'; payload: boolean }      // ← 新增
   | { type: 'SET_WORKFLOW_HAS_RUN'; payload: boolean }     // ← 新增
   | { type: 'SET_NODE2_OUTPUT'; payload: any }             // ← 新增：保存节点2完整输出
+  | { type: 'UPDATE_DESIGN_PLAN'; payload: string }         // ← 用户手动编辑节点2报告
   | { type: 'RESET' };
 
 const initialState: State = {
@@ -151,6 +152,15 @@ function reducer(state: State, action: Action): State {
         planText: action.payload?.fullReport || state.planText,  // 使用 fullReport
         project: state.project ? { ...state.project, node2Output: action.payload } : null,  // 同步更新 project.node2Output
       };
+    case 'UPDATE_DESIGN_PLAN':  // ← 用户手动编辑节点2报告
+      return {
+        ...state,
+        planText: action.payload,
+        node2Output: state.node2Output ? { ...state.node2Output, fullReport: action.payload } : { fullReport: action.payload },
+        project: state.project
+          ? { ...state.project, node2Output: { ...(state.project.node2Output || {}), fullReport: action.payload } }
+          : null,
+      };
     case 'RESET':
       return initialState;
     default:
@@ -173,6 +183,8 @@ interface ContextValue {
   runApproveScreen: (index: number) => Promise<void>;
   runReviseScreen: (index: number, feedback: string, prompt?: string) => Promise<void>;
   runEditScreen: (index: number, editPrompt: string) => Promise<void>;
+  saveDesignPlan: (fullReport: string) => Promise<void>;
+  saveScreenPrompt: (index: number, prompt: string) => Promise<void>;
   runExport: (format: string, quality: string, width: number) => Promise<void>;
   loadProject: (id: string) => Promise<void>;
 }
@@ -754,11 +766,36 @@ export function ProjectProvider({ children }: { children: ReactNode }) {
     }
   }, []);
 
+  // ── 内容编辑：用户手动修改节点输出 ─────────────────────
+
+  const saveDesignPlan = useCallback(async (fullReport: string) => {
+    if (!state.projectId) return;
+    try {
+      await api.updateDesignPlan(state.projectId, fullReport);
+      dispatch({ type: 'UPDATE_DESIGN_PLAN', payload: fullReport });
+    } catch (err: any) {
+      dispatch({ type: 'SET_ERROR', payload: err.message || '保存设计规划失败' });
+      throw err;
+    }
+  }, [state.projectId]);
+
+  const saveScreenPrompt = useCallback(async (index: number, prompt: string) => {
+    if (!state.projectId) return;
+    try {
+      await api.updateScreenPrompt(state.projectId, index, prompt);
+      dispatch({ type: 'UPDATE_SCREEN', payload: { index, data: { prompt } } });
+    } catch (err: any) {
+      dispatch({ type: 'SET_ERROR', payload: err.message || '保存提示词失败' });
+      throw err;
+    }
+  }, [state.projectId]);
+
   return (
     <ProjectContext.Provider value={{
       state, dispatch,
       createAndAnalyze, startWorkflowStream, startWorkflow, runPlan, runPrompts,
       runGenerateScreen, runApproveScreen, runReviseScreen, runEditScreen,
+      saveDesignPlan, saveScreenPrompt,
       runExport, loadProject,
     }}>
       {children}

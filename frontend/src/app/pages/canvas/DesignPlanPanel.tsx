@@ -6,9 +6,10 @@ import { zh, cardStyle } from "../../constants/theme";
 import { useProject } from "../../../context/ProjectContext";
 
 export const DesignPlanPanel = forwardRef<HTMLDivElement>((_, ref) => {
-  const { state, runPlan } = useProject();
+  const { state, runPlan, saveDesignPlan } = useProject();
   const [editing, setEditing] = useState(false);
   const [editValue, setEditValue] = useState('');
+  const [saving, setSaving] = useState(false);
 
   // 优先使用 fullReport，其次 planText（流式拼接的文本）
   const displayPlan = state.node2Output?.fullReport || state.planText;
@@ -54,17 +55,27 @@ export const DesignPlanPanel = forwardRef<HTMLDivElement>((_, ref) => {
           </button>
           {displayPlan && (
             <button
-              onClick={() => {
+              onClick={async () => {
                 if (editing) {
-                  setEditing(false);
+                  // 编辑完成：保存到后端和 context
+                  setSaving(true);
+                  try {
+                    await saveDesignPlan(editValue);
+                  } catch {
+                    // 错误已在 context 中处理
+                  } finally {
+                    setSaving(false);
+                    setEditing(false);
+                  }
                 } else {
                   setEditValue(displayPlan);
                   setEditing(true);
                 }
               }}
-              style={{ display: "flex", alignItems: "center", gap: "4px", padding: "4px 10px", borderRadius: "6px", background: editing ? "rgba(249,115,22,0.1)" : "rgba(0,0,0,0.04)", border: `1px solid ${editing ? "rgba(249,115,22,0.3)" : "rgba(0,0,0,0.1)"}`, color: editing ? "#f97316" : "rgba(30,20,32,0.5)", fontSize: "11px", cursor: "pointer", fontFamily: zh }}
+              disabled={saving}
+              style={{ display: "flex", alignItems: "center", gap: "4px", padding: "4px 10px", borderRadius: "6px", background: editing ? "rgba(249,115,22,0.1)" : "rgba(0,0,0,0.04)", border: `1px solid ${editing ? "rgba(249,115,22,0.3)" : "rgba(0,0,0,0.1)"}`, color: editing ? "#f97316" : "rgba(30,20,32,0.5)", fontSize: "11px", cursor: saving ? "wait" : "pointer", fontFamily: zh }}
             >
-              <Edit3 size={11} /> {editing ? "完成" : "编辑"}
+              {saving ? <><Loader2 size={11} style={{ animation: "spin 1s linear infinite" }} /> 保存中...</> : <><Edit3 size={11} /> {editing ? "完成" : "编辑"}</>}
             </button>
           )}
         </div>

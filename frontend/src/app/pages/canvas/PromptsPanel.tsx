@@ -1,4 +1,4 @@
-import { forwardRef, useState } from "react";
+import { forwardRef, useState, useEffect } from "react";
 import { Edit3, Zap, RefreshCw, Loader2, Sparkles } from "lucide-react";
 import { zh, cardStyle } from "../../constants/theme";
 import { useProject } from "../../../context/ProjectContext";
@@ -11,13 +11,19 @@ interface PromptBoxProps {
 }
 
 export const PromptBox = forwardRef<HTMLDivElement, PromptBoxProps>(({ prompt: initialPrompt, label, index, status }, ref) => {
-  const { state, runGenerateScreen } = useProject();
+  const { state, runGenerateScreen, saveScreenPrompt } = useProject();
   const [prompt, setPrompt] = useState(initialPrompt);
   const [editing, setEditing] = useState(false);
   const [hovering, setHovering] = useState(false);
+  const [saving, setSaving] = useState(false);
 
-  // 当 context 中的 screen prompt 变化时同步
+  // 当 context 中的 screen prompt 变化时同步本地 state
   const screen = state.screens[index];
+  useEffect(() => {
+    if (screen?.prompt) setPrompt(screen.prompt);
+  }, [screen?.prompt]);
+
+  // 非编辑时显示 context 值，编辑时显示本地值
   const currentPrompt = screen?.prompt || prompt;
   const isGenerating = state.node4Loading.includes(index);
   const isNode3Running = state.workflowStep === 'node3';
@@ -52,10 +58,28 @@ export const PromptBox = forwardRef<HTMLDivElement, PromptBoxProps>(({ prompt: i
           )}
         </div>
         <button
-          onClick={() => setEditing(e => !e)}
-          style={{ display: "flex", alignItems: "center", gap: "4px", padding: "3px 9px", borderRadius: "5px", background: editing ? "rgba(249,115,22,0.1)" : "transparent", border: `1px solid ${editing ? "rgba(249,115,22,0.25)" : "rgba(0,0,0,0.1)"}`, color: editing ? "#f97316" : "rgba(30,20,32,0.45)", fontSize: "10.5px", cursor: "pointer", fontFamily: zh }}
+          onClick={async () => {
+            if (editing) {
+              // 编辑完成：保存提示词到后端和 context
+              setSaving(true);
+              try {
+                await saveScreenPrompt(index, prompt);
+              } catch {
+                // 错误已在 context 中处理
+              } finally {
+                setSaving(false);
+                setEditing(false);
+              }
+            } else {
+              // 进入编辑模式：同步当前显示值到本地 state
+              setPrompt(currentPrompt);
+              setEditing(true);
+            }
+          }}
+          disabled={saving}
+          style={{ display: "flex", alignItems: "center", gap: "4px", padding: "3px 9px", borderRadius: "5px", background: editing ? "rgba(249,115,22,0.1)" : "transparent", border: `1px solid ${editing ? "rgba(249,115,22,0.25)" : "rgba(0,0,0,0.1)"}`, color: editing ? "#f97316" : "rgba(30,20,32,0.45)", fontSize: "10.5px", cursor: saving ? "wait" : "pointer", fontFamily: zh }}
         >
-          <Edit3 size={10} /> {editing ? "完成" : "编辑"}
+          {saving ? <Loader2 size={10} style={{ animation: "spin 1s linear infinite" }} /> : <Edit3 size={10} />} {saving ? "保存中..." : editing ? "完成" : "编辑"}
         </button>
       </div>
 
@@ -74,7 +98,7 @@ export const PromptBox = forwardRef<HTMLDivElement, PromptBoxProps>(({ prompt: i
       >
         {editing ? (
           <textarea
-            value={currentPrompt}
+            value={prompt}
             onChange={e => setPrompt(e.target.value)}
             autoFocus
             style={{ width: "100%", minHeight: "80px", fontSize: "11.5px", lineHeight: 1.65, color: "#1e1420", fontFamily: zh, border: "1px solid rgba(249,115,22,0.2)", borderRadius: "7px", padding: "8px 10px", outline: "none", resize: "vertical" as const, background: "rgba(249,115,22,0.02)", boxSizing: "border-box" as const }}

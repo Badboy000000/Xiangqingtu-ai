@@ -187,6 +187,24 @@ export async function editScreenHandler(req: AuthRequest, res: Response, next: N
   }
 }
 
+// ─── 内容编辑（用户手动修改节点输出）─────────────────────
+
+export async function updateDesignPlan(req: AuthRequest, res: Response, next: NextFunction) {
+  try {
+    const id = req.params.id as string;
+    const { fullReport } = req.body;
+    if (!fullReport) throw new AppError('缺少 fullReport 字段', 400);
+
+    const project = await Project.findByPk(id);
+    if (!project) throw new AppError('项目不存在', 404);
+
+    await project.update({ designPlanResult: { fullReport } });
+    res.json({ success: true, data: { fullReport } });
+  } catch (err) {
+    next(err);
+  }
+}
+
 // ─── 导出 ─────────────────────────────────────────────────
 
 export async function exportProject(req: AuthRequest, res: Response, next: NextFunction) {

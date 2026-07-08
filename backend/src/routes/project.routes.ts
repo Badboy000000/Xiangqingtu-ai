@@ -10,7 +10,7 @@ import {
   createProject, getProject, deleteProject, listProjects,
   analyzeProject, planProject, generatePrompts,
   generateScreen, approveScreenHandler, reviseScreenHandler, editScreenHandler,
-  exportProject, getLatestExport,
+  exportProject, getLatestExport, updateDesignPlan,
 } from '../controllers/project.controller';
 import { streamWorkflow } from '../controllers/workflow-stream.controller';
 
@@ -67,6 +67,9 @@ router.post('/:id/analyze', authMiddleware, analyzeProject);       // 节点1
 router.post('/:id/plan', authMiddleware, planProject);             // 节点2
 router.post('/:id/prompts', authMiddleware, generatePrompts);      // 节点3
 router.get('/:id/workflow/stream', authMiddleware, streamWorkflow);  // 流式工作流（SSE）
+
+// ─── 内容编辑（用户手动修改节点输出）──────────────────────
+router.patch('/:id/design-plan', authMiddleware, updateDesignPlan);  // 更新节点2设计规划
 
 // ─── 屏级操作 ─────────────────────────────────────────────
 router.post('/:id/screens/:idx/generate', authMiddleware, generateScreen);     // 节点4

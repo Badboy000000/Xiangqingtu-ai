@@ -124,6 +124,22 @@ export async function generateScreen(id: string, screenIndex: number) {
   return request(`/projects/${id}/screens/${screenIndex}/generate`, { method: 'POST' });
 }
 
+// ── 内容编辑 ────────────────────────────────────────────────
+
+export async function updateDesignPlan(id: string, fullReport: string) {
+  return request(`/projects/${id}/design-plan`, {
+    method: 'PATCH',
+    body: JSON.stringify({ fullReport }),
+  });
+}
+
+export async function updateScreenPrompt(id: string, screenIndex: number, prompt: string) {
+  return request(`/projects/${id}/screens/${screenIndex}/revise`, {
+    method: 'POST',
+    body: JSON.stringify({ feedback: '', prompt }),
+  });
+}
+
 // ── 屏级确认 ──────────────────────────────────────────────
 
 export async function approveScreen(id: string, screenIndex: number) {
