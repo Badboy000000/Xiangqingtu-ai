@@ -38,10 +38,16 @@ async function imageToCompressedBase64Url(filePath: string): Promise<string> {
   return `data:image/jpeg;base64,${compressedBuffer.toString('base64')}`;
 }
 
-/** 当前图像生成模型名称（供启动日志等外部引用） */
-export const IMAGE_MODEL_NAME = process.env.BAILIAN_IMAGE_MODEL || 'wan2.7-image-pro';
-/** 当前图像生成服务平台标签 */
-export const IMAGE_PROVIDER_LABEL = '阿里百炼';
+/** 首次生图主模型名称（供启动日志等外部引用） */
+export const IMAGE_MODEL_NAME = 'gpt-image-2';
+/** 首次生图服务平台标签 */
+export const IMAGE_PROVIDER_LABEL = '柴犬 · ChatGPT-img';
+/** 图片编辑模型名称（用于「修改图」场景） */
+export const IMAGE_EDIT_MODEL_NAME = process.env.BAILIAN_IMAGE_EDIT_MODEL || 'qwen-image-edit-plus';
+/** 图片编辑服务平台标签 */
+export const IMAGE_EDIT_PROVIDER_LABEL = '阿里百炼';
+/** 首次生图兜底模型名称（主模型失败时降级使用） */
+export const IMAGE_FALLBACK_MODEL_NAME = process.env.BAILIAN_IMAGE_MODEL || 'wan2.7-image-pro';
 
 // ─── 图片尺寸校验与裁剪 ──────────────────────────────────────
 
@@ -302,6 +308,118 @@ export async function generateWithQwenImage(params: {
   throw new Error('阿里百炼 qwen-image 调用失败：重试次数用尽');
 }
 
+// ─── 阿里百炼 qwen-image-edit-plus (图片编辑，同步 API) ────────
+
+/**
+ * 阿里百炼 qwen-image-edit-plus 图片编辑（同步调用）
+ *
+ * 与 wan2.7 共用端点和请求格式，区别在于：
+ * - 必须传入 baseImage 作为待编辑的原图（放在 content 数组首位）
+ * - editPrompt 描述"如何修改"，而非"生成什么"
+ * - 限流更宽松（2次/秒），落入默认 500ms 分支
+ *
+ * @see https://help.aliyun.com/zh/model-studio/qwen-image-edit
+ */
+export async function generateWithQwenImageEdit(params: {
+  baseImage: string;             // 待编辑的原图（本地路径或 URL）
+  editPrompt: string;            // 修改描述
+  extraReferences?: string[];    // 可选：额外参考图（如风格图）
+  size?: string;                 // 目标尺寸
+  n?: number;
+  watermark?: boolean;
+}): Promise<ImageGenResult[]> {
+  // content: [原图, ...额外参考图, 修改指令]
+  const content: Array<Record<string, string>> = [];
+
+  const baseImageEncoded = await imageToCompressedBase64Url(params.baseImage);
+  content.push({ image: baseImageEncoded });
+
+  if (params.extraReferences?.length) {
+    const extras = await Promise.all(
+      params.extraReferences.map(img => imageToCompressedBase64Url(img))
+    );
+    extras.forEach(img => content.push({ image: img }));
+  }
+
+  content.push({ text: params.editPrompt });
+
+  const body = {
+    model: config.bailianImage.editModel,
+    input: {
+      messages: [
+        {
+          role: 'user',
+          content,
+        },
+      ],
+    },
+    parameters: {
+      size: params.size || '1024*1792',
+      n: params.n || 1,
+      watermark: params.watermark ?? false,
+    },
+  };
+
+  const maxRetries = 3;
+  for (let attempt = 1; attempt <= maxRetries; attempt++) {
+    await enforceRateLimit(config.bailianImage.editModel);
+
+    const response = await fetch(`${config.bailianImage.baseUrl}/generation`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${config.bailianImage.apiKey}`,
+      },
+      body: JSON.stringify(body),
+    });
+
+    if (response.status === 429) {
+      const waitMs = 2000 * attempt;
+      console.warn(`[百炼编辑] 第${attempt}次调用触发限流(429)，${waitMs}ms后重试...`);
+      if (attempt < maxRetries) {
+        await new Promise(resolve => setTimeout(resolve, waitMs));
+        continue;
+      }
+      throw new Error(`阿里百炼 qwen-image-edit 限流(429)，已重试${maxRetries}次仍失败`);
+    }
+
+    if (!response.ok) {
+      const errText = await response.text();
+      throw new Error(`阿里百炼 qwen-image-edit 编辑失败: ${response.status} - ${errText}`);
+    }
+
+    const data = await response.json() as {
+      output: {
+        choices: Array<{
+          finish_reason: string;
+          message: {
+            role: string;
+            content: Array<{ image?: string; type?: string; text?: string }>;
+          };
+        }>;
+      };
+      request_id?: string;
+      code?: string;
+      message?: string;
+    };
+
+    if (data.code) {
+      throw new Error(`阿里百炼 qwen-image-edit 业务错误: ${data.code} - ${data.message}`);
+    }
+
+    const imageUrls: string[] = [];
+    for (const choice of data.output.choices) {
+      for (const item of choice.message.content) {
+        if (item.image) imageUrls.push(item.image);
+      }
+    }
+
+    return imageUrls.map(url => ({ url }));
+  }
+
+  throw new Error('阿里百炼 qwen-image-edit 调用失败：重试次数用尽');
+}
+
 // ──────────────────────────────────────────────────────
 // 以下为 Seedream (火山引擎) 方案（已停用，保留备用）
 // 若需切换回 Seedream，在 service 层切换调用即可
@@ -355,22 +473,25 @@ export async function generateWithSeedream(params: {
   }));
 }
 
-// ─── GPT Image 2 (柴犬平台 同步 API) ──────────────────────
+// ─── GPT Image 2 (Lino 平台 同步 API) ──────────────────────
 
 /**
- * GPT Image 2 同步生图（柴犬平台）
+ * GPT Image 2 同步生图（Lino 平台）
  * 直接返回结果，无需轮询
+ * 注：Lino 的 gpt-image-2 返回 b64_json（无 url 字段），本函数会拼成 data URL
+ *     统一交给下游 downloadImage 处理（Node 22 fetch 原生支持 data: 协议）
  */
 export async function generateWithGPTImage2(params: {
   prompt: string;
   size?: string;
   n?: number;
 }): Promise<ImageGenResult[]> {
-  const response = await fetch(`${config.chaiquan.baseUrl}/v1/images/generations`, {
+  const response = await fetch(`${config.lino.baseUrl}/v1/images/generations`, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
-      'Authorization': `Bearer ${config.chaiquan.apiKey}`,
+      'Accept': 'application/json',
+      'Authorization': `Bearer ${config.lino.apiKey}`,
     },
     body: JSON.stringify({
       model: 'gpt-image-2',
@@ -378,7 +499,6 @@ export async function generateWithGPTImage2(params: {
       size: params.size || '1024x1536',
       n: params.n || 1,
       quality: 'auto',
-      response_format: 'url',
     }),
   });
 
@@ -388,9 +508,11 @@ export async function generateWithGPTImage2(params: {
   }
 
   const data = await response.json() as {
-    data: Array<{ url: string; revised_prompt?: string }>;
+    data: Array<{ url?: string; b64_json?: string; revised_prompt?: string }>;
   };
-  return data.data.map(item => ({ url: item.url }));
+  return data.data.map(item => ({
+    url: item.url || (item.b64_json ? `data:image/png;base64,${item.b64_json}` : ''),
+  }));
 }
 
 // ──────────────────────────────────────────────────────

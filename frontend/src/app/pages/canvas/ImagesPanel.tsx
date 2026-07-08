@@ -1,5 +1,5 @@
 import { forwardRef, useState, useCallback } from "react";
-import { Download, ZoomIn, Loader2, Sparkles, Images, X } from "lucide-react";
+import { Download, ZoomIn, Loader2, Sparkles, Images, X, Wand2 } from "lucide-react";
 import { zh, cardStyle } from "../../constants/theme";
 import { useProject } from "../../../context/ProjectContext";
 
@@ -10,12 +10,46 @@ interface ImageCardProps {
 }
 
 export const ImageCard = forwardRef<HTMLDivElement, ImageCardProps>(({ screen, index, onPreview }, ref) => {
-  const { state } = useProject();
+  const { state, runEditScreen } = useProject();
   const isGenerating = state.node4Loading.includes(index);
   const hasImage = !!screen.imageUrl;
 
   // 真实图片尺寸（图片加载后获取）
   const [imgDims, setImgDims] = useState<{ w: number; h: number } | null>(null);
+
+  // 「修改」交互状态
+  const [editing, setEditing] = useState(false);
+  const [editPrompt, setEditPrompt] = useState("");
+  const [editError, setEditError] = useState<string | null>(null);
+
+  const openEditor = () => {
+    setEditPrompt("");
+    setEditError(null);
+    setEditing(true);
+  };
+
+  const cancelEditor = () => {
+    setEditing(false);
+    setEditPrompt("");
+    setEditError(null);
+  };
+
+  const submitEdit = async () => {
+    const trimmed = editPrompt.trim();
+    if (!trimmed) {
+      setEditError("请填写修改描述");
+      return;
+    }
+    setEditError(null);
+    try {
+      await runEditScreen(index, trimmed);
+      // 成功后收起输入区（图片会自动刷新）
+      setEditing(false);
+      setEditPrompt("");
+    } catch (err: any) {
+      setEditError(err?.message || "修改失败");
+    }
+  };
 
   return (
     <div ref={ref} style={{ ...cardStyle, width: "300px", borderRadius: "12px", boxShadow: "0 2px 12px rgba(0,0,0,0.07)" }}>
@@ -71,6 +105,12 @@ export const ImageCard = forwardRef<HTMLDivElement, ImageCardProps>(({ screen, i
                 style={{ display: "flex", alignItems: "center", gap: "4px", padding: "7px 12px", borderRadius: "7px", background: "rgba(255,255,255,0.9)", border: "none", fontSize: "11px", fontWeight: 600, cursor: "pointer", color: "#1e1420", fontFamily: zh }}>
                 <ZoomIn size={12} /> 查看
               </button>
+              <button
+                onClick={openEditor}
+                disabled={isGenerating}
+                style={{ display: "flex", alignItems: "center", gap: "4px", padding: "7px 12px", borderRadius: "7px", background: "rgba(139,92,246,0.92)", border: "none", fontSize: "11px", fontWeight: 600, cursor: isGenerating ? "not-allowed" : "pointer", color: "#fff", fontFamily: zh, opacity: isGenerating ? 0.5 : 1 }}>
+                <Wand2 size={12} /> 修改
+              </button>
               <a href={screen.imageUrl} download style={{ display: "flex", alignItems: "center", gap: "4px", padding: "7px 12px", borderRadius: "7px", background: "rgba(249,115,22,0.9)", border: "none", fontSize: "11px", fontWeight: 600, cursor: "pointer", color: "#fff", fontFamily: zh, textDecoration: "none" }}>
                 <Download size={12} /> 下载
               </a>
@@ -89,6 +129,71 @@ export const ImageCard = forwardRef<HTMLDivElement, ImageCardProps>(({ screen, i
           {imgDims ? `${imgDims.w}×${imgDims.h}` : hasImage ? "加载中..." : "—"}
         </span>
       </div>
+
+      {/* 修改输入区（仅在已生成图且未在其他生成任务中时展开） */}
+      {editing && hasImage && (
+        <div style={{ padding: "10px 14px 12px", borderTop: "1px solid rgba(0,0,0,0.05)", background: "rgba(139,92,246,0.04)" }}>
+          <div style={{ fontSize: "10.5px", color: "#7c3aed", fontFamily: zh, marginBottom: "6px", display: "flex", alignItems: "center", gap: "4px" }}>
+            <Wand2 size={11} /> 描述你想如何修改这张图
+          </div>
+          <textarea
+            value={editPrompt}
+            onChange={(e) => setEditPrompt(e.target.value)}
+            placeholder="例如：把背景换成木质桌面、放大主图、去掉左上角的文字…"
+            disabled={isGenerating}
+            autoFocus
+            rows={3}
+            style={{
+              width: "100%", boxSizing: "border-box" as const,
+              fontSize: "11.5px", lineHeight: 1.5, color: "#1e1420",
+              fontFamily: zh,
+              border: "1px solid rgba(139,92,246,0.25)", borderRadius: "6px",
+              padding: "7px 9px", outline: "none",
+              resize: "vertical" as const, background: "#fff",
+            }}
+          />
+          {editError && (
+            <div style={{ fontSize: "10.5px", color: "#ef4444", fontFamily: zh, marginTop: "5px" }}>
+              {editError}
+            </div>
+          )}
+          <div style={{ display: "flex", justifyContent: "flex-end", gap: "6px", marginTop: "8px" }}>
+            <button
+              onClick={cancelEditor}
+              disabled={isGenerating}
+              style={{
+                padding: "5px 12px", borderRadius: "6px",
+                background: "transparent", border: "1px solid rgba(0,0,0,0.12)",
+                fontSize: "11px", color: "rgba(30,20,32,0.6)", cursor: isGenerating ? "not-allowed" : "pointer",
+                fontFamily: zh,
+              }}
+            >
+              取消
+            </button>
+            <button
+              onClick={submitEdit}
+              disabled={isGenerating || !editPrompt.trim()}
+              style={{
+                display: "flex", alignItems: "center", gap: "4px",
+                padding: "5px 14px", borderRadius: "6px",
+                background: isGenerating || !editPrompt.trim() ? "rgba(0,0,0,0.05)" : "linear-gradient(135deg, #8b5cf6, #a855f7)",
+                border: "none",
+                fontSize: "11px", fontWeight: 600,
+                color: isGenerating || !editPrompt.trim() ? "rgba(30,20,32,0.3)" : "#fff",
+                cursor: isGenerating || !editPrompt.trim() ? "not-allowed" : "pointer",
+                fontFamily: zh,
+                boxShadow: !isGenerating && editPrompt.trim() ? "0 2px 6px rgba(139,92,246,0.3)" : "none",
+              }}
+            >
+              {isGenerating ? (
+                <><Loader2 size={11} style={{ animation: "spin 1s linear infinite" }} /> 修改中...</>
+              ) : (
+                <><Wand2 size={11} /> 应用修改</>
+              )}
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 });

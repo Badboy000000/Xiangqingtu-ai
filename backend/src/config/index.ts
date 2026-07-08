@@ -20,10 +20,16 @@ export const config = {
     apiKey: process.env.SSY_API_KEY || '',
   },
 
-  // 柴犬平台 (GPT Image 2 同步生图)
+  // 柴犬平台 (GPT Image 2 同步生图 - 已停用，保留备用)
   chaiquan: {
     baseUrl: process.env.CHAIQUAN_BASE_URL || 'https://image.wucur.com',
     apiKey: process.env.CHAIQUAN_API_KEY || '',
+  },
+
+  // Lino 平台 (GPT Image 2-C 同步生图 - 当前主链路)
+  lino: {
+    baseUrl: process.env.LINO_BASE_URL || 'https://linoapi.com.cn',
+    apiKey: process.env.LINO_API_KEY || '',
   },
 
   // 柴犬平台 (GPT-5.5 LLM 聊天)
@@ -44,11 +50,14 @@ export const config = {
     apiKey: process.env.BAILIAN_API_KEY || '',
   },
 
-  // 阿里百炼图像生成 (wan2.7-image-pro 系列)
+  // 阿里百炼图像生成
+  // - model: 兜底文生图/图生图（wan2.7-image-pro）
+  // - editModel: 专用图片编辑（qwen-image-edit-plus），供屏级编辑接口使用
   bailianImage: {
     baseUrl: process.env.BAILIAN_IMAGE_BASE_URL || '',
     apiKey: process.env.BAILIAN_IMAGE_API_KEY || process.env.BAILIAN_API_KEY || '',
     model: process.env.BAILIAN_IMAGE_MODEL || 'wan2.7-image-pro',
+    editModel: process.env.BAILIAN_IMAGE_EDIT_MODEL || 'qwen-image-edit-plus',
   },
 
   jwt: {

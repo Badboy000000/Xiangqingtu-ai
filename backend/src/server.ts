@@ -8,7 +8,7 @@ import * as path from 'path';
 import { setFirstRequestCallback } from './middleware/request-logger';
 import { initPrompts, listPrompts } from './prompts/prompt-loader';
 import { LLM_MODEL_NAME, LLM_PROVIDER_LABEL } from './adapters/llm.adapter';
-import { IMAGE_MODEL_NAME, IMAGE_PROVIDER_LABEL } from './adapters/image.adapter';
+import { IMAGE_MODEL_NAME, IMAGE_PROVIDER_LABEL, IMAGE_EDIT_MODEL_NAME, IMAGE_EDIT_PROVIDER_LABEL, IMAGE_FALLBACK_MODEL_NAME } from './adapters/image.adapter';
 
 // ── 确保 uploads 目录存在 ──────────────────────────────────
 const uploadDir = path.resolve(config.upload.dir);
@@ -127,7 +127,8 @@ async function start() {
 
     // AI 模型状态（动态从 adapter 获取）
     statusLine('🤖', 'LLM', `${LLM_MODEL_NAME} (${LLM_PROVIDER_LABEL})`, c.cyan);
-    statusLine('🎨', '图像', `${IMAGE_MODEL_NAME} (${IMAGE_PROVIDER_LABEL})`, c.cyan);
+    statusLine('🎨', '生图', `${IMAGE_MODEL_NAME} (${IMAGE_PROVIDER_LABEL}) · 兜底 ${IMAGE_FALLBACK_MODEL_NAME}`, c.cyan);
+    statusLine('✏️ ', '图改', `${IMAGE_EDIT_MODEL_NAME} (${IMAGE_EDIT_PROVIDER_LABEL})`, c.cyan);
     statusLine('📁', '上传', path.resolve(config.upload.dir));
 
     divider();

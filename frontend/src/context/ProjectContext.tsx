@@ -172,6 +172,7 @@ interface ContextValue {
   runGenerateScreen: (index: number) => Promise<void>;
   runApproveScreen: (index: number) => Promise<void>;
   runReviseScreen: (index: number, feedback: string, prompt?: string) => Promise<void>;
+  runEditScreen: (index: number, editPrompt: string) => Promise<void>;
   runExport: (format: string, quality: string, width: number) => Promise<void>;
   loadProject: (id: string) => Promise<void>;
 }
@@ -641,6 +642,29 @@ export function ProjectProvider({ children }: { children: ReactNode }) {
     }
   }, [state.projectId]);
 
+  const runEditScreen = useCallback(async (index: number, editPrompt: string) => {
+    if (!state.projectId) return;
+    dispatch({ type: 'ADD_NODE4_LOADING', payload: index });
+    try {
+      const result = await api.editScreen(state.projectId, index, editPrompt);
+      dispatch({
+        type: 'UPDATE_SCREEN',
+        payload: {
+          index,
+          data: {
+            imageUrl: result.imageUrl || '',
+            status: 'generated',
+          },
+        },
+      });
+    } catch (err: any) {
+      dispatch({ type: 'SET_ERROR', payload: err.message || `第${index + 1}屏编辑失败` });
+      throw err;
+    } finally {
+      dispatch({ type: 'REMOVE_NODE4_LOADING', payload: index });
+    }
+  }, [state.projectId]);
+
   const runExport = useCallback(async (format: string, quality: string, width: number) => {
     if (!state.projectId) return;
     dispatch({ type: 'SET_EXPORT_LOADING', payload: true });
@@ -734,7 +758,7 @@ export function ProjectProvider({ children }: { children: ReactNode }) {
     <ProjectContext.Provider value={{
       state, dispatch,
       createAndAnalyze, startWorkflowStream, startWorkflow, runPlan, runPrompts,
-      runGenerateScreen, runApproveScreen, runReviseScreen,
+      runGenerateScreen, runApproveScreen, runReviseScreen, runEditScreen,
       runExport, loadProject,
     }}>
       {children}

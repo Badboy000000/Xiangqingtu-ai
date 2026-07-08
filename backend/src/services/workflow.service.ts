@@ -3,7 +3,7 @@ import { v4 as uuidv4 } from 'uuid';
 import { analyzeProductInfo } from './node1-info.service';
 import { generateDesignPlan } from './node2-plan.service';
 import { generateSingleScreenPrompt } from './node3-prompt.service';
-import { generateScreenImageSmart } from './node4-image.service';
+import { generateScreenImageSmart, editScreenImage } from './node4-image.service';
 import { composeLongImage } from './export.service';
 import { reviseScreenPrompt } from './node3-prompt.service';
 import { AppError } from '../middleware/error-handler';
@@ -345,6 +345,82 @@ export async function runNode4(projectId: string, screenIndex: number) {
     await project.update({ status: 'reviewing' });
 
     // 返回版本历史
+    const versions = await ScreenVersion.findAll({
+      where: { screenId: screen.id },
+      order: [['versionNumber', 'ASC']],
+    });
+
+    return { imageUrl: result.imageUrl, versions };
+  } catch (err: unknown) {
+    await screen.update({ status: 'failed' });
+    throw err;
+  }
+}
+
+/**
+ * 屏级图片编辑
+ * 拿当前屏的最新图作为 base，调用 qwen-image-edit-plus 生成新版本
+ * - 追加 ScreenVersion（版本号 +1，文件名带 "修改图" 标识）
+ * - 追加 ScreenRevision 记录（feedback = editPrompt，标记来源为「图改」）
+ */
+export async function editScreen(
+  projectId: string,
+  screenIndex: number,
+  editPrompt: string,
+) {
+  if (!editPrompt || !editPrompt.trim()) {
+    throw new AppError('修改描述不能为空', 400);
+  }
+
+  const project = await Project.findByPk(projectId);
+  if (!project) throw new AppError('项目不存在', 404);
+
+  const screen = await findScreenByIndex(projectId, screenIndex);
+  if (!screen) throw new AppError(`屏 ${screenIndex} 不存在`, 400);
+  if (!screen.imageUrl) {
+    throw new AppError(`屏 ${screenIndex} 尚未生成图片，无法编辑`, 400);
+  }
+
+  await screen.update({ status: 'generating' });
+
+  try {
+    const existingVersions = await ScreenVersion.count({ where: { screenId: screen.id } });
+    const versionNumber = existingVersions + 1;
+
+    const result = await editScreenImage({
+      baseImageUrl: screen.imageUrl,
+      editPrompt: editPrompt.trim(),
+      screenIndex,
+      projectId,
+      screenLabel: screen.label,
+      versionNumber,
+      platform: project.platform as 'domestic' | 'overseas',
+    });
+
+    // 版本记录：prompt 字段记录本次编辑意图，便于日后追溯
+    await ScreenVersion.create({
+      id: uuidv4(),
+      screenId: screen.id,
+      versionNumber,
+      prompt: `[图改] ${editPrompt.trim()}`,
+      imageUrl: result.imageUrl,
+    });
+
+    // 修改历史：feedback = editPrompt，oldPrompt/newPrompt 保持不变（区别于 reviseScreen 的 prompt 修订）
+    await ScreenRevision.create({
+      id: uuidv4(),
+      screenId: screen.id,
+      feedback: editPrompt.trim(),
+      oldPrompt: screen.prompt || '',
+      newPrompt: screen.prompt || '',
+    });
+
+    await screen.update({
+      imageUrl: result.imageUrl,
+      originalImageUrl: result.originalUrl,
+      status: 'generated',
+    });
+
     const versions = await ScreenVersion.findAll({
       where: { screenId: screen.id },
       order: [['versionNumber', 'ASC']],

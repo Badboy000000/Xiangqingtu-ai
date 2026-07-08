@@ -17,24 +17,25 @@ const BASE_URL = 'http://localhost:5173';
 const LOGIN_ACCOUNT = '东篱馆主';
 const LOGIN_PASSWORD = 'wj210504qf..';
 
-const PRODUCT_NAME = '简集316不锈钢保温杯';
-const SELLING_POINTS = `316医用级不锈钢内胆，安全无异味
-12小时长效保温，冷热双用
-一键弹盖设计，单手操作更便捷
-500ml大容量，满足全天饮水需求
-简约北欧风格，颜值与实用并存`;
-const PRODUCT_SPECS = '容量500ml、尺寸φ68×225mm、重量320g、316不锈钢内胆、PP杯盖、硅胶密封圈';
-const MATERIAL = '316不锈钢';
-const TARGET_AUDIENCE = '25-40岁注重品质生活的都市白领';
-const PRICE_RANGE = '¥89 - ¥129';
-const DESIGN_REQUIREMENTS = '清新简约、温暖色调、突出材质质感、白色干净背景';
-const SCREEN_COUNT = 5;
+const PRODUCT_NAME = '天然铁木亲子筷套装';
+const SELLING_POINTS = `天然铁木材质，纹理自然细腻，手感温润不冰冷
+亲子同款设计，成人筷与儿童筷搭配，培养家庭用餐仪式感
+精选原木打造，筷身坚硬耐磨，经久耐用不易变形
+符合儿童手型设计，长度适中，帮助孩子学习自主用餐`;
+const PRODUCT_SPECS = '产品类型：亲子筷套装、儿童筷长度约18cm、成人筷长度约23cm、筷身直径约0.7-0.8cm、重量约80-120g/套、包装：儿童筷1双+成人筷1双、颜色：天然深木色';
+const MATERIAL = '天然铁木、植物木质纤维、环保食品接触级涂层';
+const TARGET_AUDIENCE = '3岁以上儿童及注重家庭用餐仪式感的家庭用户';
+const PRICE_RANGE = '¥39 - ¥89';
+const DESIGN_REQUIREMENTS = '温馨自然、原木质感、突出天然纹理、家庭温暖氛围';
+// 分屏数量：4-6 随机
+const SCREEN_COUNT = 4 + Math.floor(Math.random() * 3);
 
-// 参考图路径（3 张）—— 绝对路径，Playwright setInputFiles 支持
+// 参考图路径（4 张）—— 绝对路径，Playwright setInputFiles 支持
 const REF_IMAGES = [
-  'C:/Users/lwj/Desktop/参考图/生成浅色干净白底产品图 (1).png',
-  'C:/Users/lwj/Desktop/参考图/生成浅色干净白底产品图 (2).png',
-  'C:/Users/lwj/Desktop/参考图/生成浅色干净白底产品图.png',
+  'E:/projects/电商详情图生成/backend/uploads/参考图目录/参考图1.jpg',
+  'E:/projects/电商详情图生成/backend/uploads/参考图目录/参考图2.jpg',
+  'E:/projects/电商详情图生成/backend/uploads/参考图目录/参考图3.jpg',
+  'E:/projects/电商详情图生成/backend/uploads/参考图目录/参考图4.jpg',
 ];
 
 // ─── 辅助函数 ───────────────────────────────────────────
@@ -139,7 +140,7 @@ test('E2E 冒烟测试：登录 → 填表 → 上传 → 生成工作流', asyn
   const sellingPointsTextarea = page.locator('textarea[placeholder*="行业顶级"]');
   await sellingPointsTextarea.click();
   await sellingPointsTextarea.fill(SELLING_POINTS);
-  console.log('  ✅ 核心卖点已填写（5条）');
+  console.log('  ✅ 核心卖点已填写（4条）');
 
   // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
   // 第 9 步：填写产品规格参数

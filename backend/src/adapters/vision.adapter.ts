@@ -3,7 +3,6 @@ import { config } from '../config';
 import { LLM_MODEL_NAME } from './llm.adapter';
 import * as path from 'path';
 import sharp from 'sharp';
-import { saveDebugLog } from '../utils/debug-logger';
 
 // 阿里百炼 qwen3.7-plus（当前启用）
 const client = new OpenAI({
@@ -56,12 +55,6 @@ export async function analyzeImages(
   userContext?: string,  // 可选：额外的文本上下文（如表单数据），与图片一起传入多模态消息
   projectId?: string,    // 可选：项目ID，用于按项目分类存储调试日志
 ): Promise<string> {
-  // [DEBUG] Save vision input to file
-  const visionInputContent = `# Vision Analysis Input\n\n## Image Paths\n${imagePaths.map((p, i) => `${i + 1}. ${p}`).join('\n')}\n\n## User Context\n\`\`\`markdown\n${userContext || '(无)'}\n\`\`\`\n\n## Prompt\n\`\`\`markdown\n${prompt}\n\`\`\``;
-  if (projectId) {
-    saveDebugLog(projectId, 'node1-image-analysis-input.md', visionInputContent);
-  }
-
   const content: Array<{ type: string; text?: string; image_url?: { url: string } }> = [];
 
   // 添加图片（并行压缩）
@@ -100,12 +93,6 @@ export async function analyzeImages(
   } as any);
 
   const result = completion.choices[0]?.message?.content || '';
-
-  // [DEBUG] Save vision output to file
-  if (projectId) {
-    saveDebugLog(projectId, 'node1-image-analysis-output.md', `# Vision Analysis Output\n\n\`\`\`markdown\n${result}\n\`\`\``);
-  }
-
   return result;
 }
 

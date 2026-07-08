@@ -137,6 +137,13 @@ export async function reviseScreen(id: string, screenIndex: number, feedback: st
   });
 }
 
+export async function editScreen(id: string, screenIndex: number, editPrompt: string) {
+  return request(`/projects/${id}/screens/${screenIndex}/edit`, {
+    method: 'POST',
+    body: JSON.stringify({ editPrompt }),
+  });
+}
+
 // ── 导出 ──────────────────────────────────────────────────
 
 export async function exportProject(id: string, format: string, quality: string, width: number) {

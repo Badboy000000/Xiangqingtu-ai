@@ -4,7 +4,7 @@ import { AppError } from '../middleware/error-handler';
 import type { AuthRequest } from '../middleware/auth.middleware';
 import {
   runNode1, runNode2, runNode3, runNode4,
-  approveScreen, reviseScreen, runExport,
+  approveScreen, reviseScreen, editScreen, runExport,
 } from '../services/workflow.service';
 
 // ─── 项目管理 ─────────────────────────────────────────────
@@ -169,6 +169,18 @@ export async function reviseScreenHandler(req: AuthRequest, res: Response, next:
     const screenIndex = parseInt(req.params.idx as string, 10);
     const { prompt, feedback } = req.body;
     const result = await reviseScreen(id, screenIndex, feedback, prompt);
+    res.json({ success: true, data: result });
+  } catch (err) {
+    next(err);
+  }
+}
+
+export async function editScreenHandler(req: AuthRequest, res: Response, next: NextFunction) {
+  try {
+    const id = req.params.id as string;
+    const screenIndex = parseInt(req.params.idx as string, 10);
+    const { editPrompt } = req.body;
+    const result = await editScreen(id, screenIndex, editPrompt);
     res.json({ success: true, data: result });
   } catch (err) {
     next(err);

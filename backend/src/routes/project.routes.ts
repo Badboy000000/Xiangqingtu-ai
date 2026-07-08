@@ -9,7 +9,7 @@ import type { AuthRequest } from '../middleware/auth.middleware';
 import {
   createProject, getProject, deleteProject, listProjects,
   analyzeProject, planProject, generatePrompts,
-  generateScreen, approveScreenHandler, reviseScreenHandler,
+  generateScreen, approveScreenHandler, reviseScreenHandler, editScreenHandler,
   exportProject, getLatestExport,
 } from '../controllers/project.controller';
 import { streamWorkflow } from '../controllers/workflow-stream.controller';
@@ -73,6 +73,7 @@ router.post('/:id/screens/:idx/generate', authMiddleware, generateScreen);     /
 router.post('/:id/screens/:idx/regenerate', authMiddleware, generateScreen);   // 重生成
 router.post('/:id/screens/:idx/approve', authMiddleware, approveScreenHandler);
 router.post('/:id/screens/:idx/revise', authMiddleware, reviseScreenHandler);
+router.post('/:id/screens/:idx/edit', authMiddleware, editScreenHandler);      // 图片编辑（qwen-image-edit-plus）
 
 // ─── 导出 ─────────────────────────────────────────────────
 router.post('/:id/export', authMiddleware, exportProject);
