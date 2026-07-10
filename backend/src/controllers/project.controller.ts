@@ -1,4 +1,6 @@
 import { Response, NextFunction } from 'express';
+import fs from 'fs';
+import path from 'path';
 import { Project, Screen, ScreenVersion, ScreenRevision, ExportRecord } from '../models';
 import { AppError } from '../middleware/error-handler';
 import type { AuthRequest } from '../middleware/auth.middleware';
@@ -6,6 +8,7 @@ import {
   runNode1, runNode2, runNode3, runNode4,
   approveScreen, reviseScreen, editScreen, runExport,
 } from '../services/workflow.service';
+import { config } from '../config';
 
 // ─── 项目管理 ─────────────────────────────────────────────
 
@@ -220,6 +223,110 @@ export async function exportProject(req: AuthRequest, res: Response, next: NextF
     );
 
     res.json({ success: true, data: result });
+  } catch (err) {
+    next(err);
+  }
+}
+
+// ─── 项目复制（深拷贝：含所有节点输出、分屏数据、图片文件）──
+
+/**
+ * 把 srcPath 指向的文件拷到 destPath（自动创建目录），失败静默返回 false
+ */
+function safeCopyFile(srcPath: string, destPath: string): boolean {
+  if (!srcPath || srcPath === destPath) return false;
+  try {
+    if (!fs.existsSync(srcPath)) return false;
+    fs.mkdirSync(path.dirname(destPath), { recursive: true });
+    fs.copyFileSync(srcPath, destPath);
+    return true;
+  } catch { return false; }
+}
+
+/**
+ * 把 /uploads/{oldId}/xxx 映射到 /uploads/{newId}/xxx 并拷贝文件，返回新路径
+ */
+function remapUploadUrl(url: string, oldId: string, newId: string, uploadsRoot: string): string {
+  if (!url || !url.startsWith('/uploads/')) return url;
+  const afterPrefix = url.substring('/uploads/'.length);   // oldId/xxx.png
+  const segments = afterPrefix.split('/');
+  if (segments[0] !== oldId) return url;                   // 异常路径原样返回
+  segments[0] = newId;
+  const destRelative = segments.join('/');
+  safeCopyFile(
+    path.join(uploadsRoot, afterPrefix),
+    path.join(uploadsRoot, destRelative),
+  );
+  return `/uploads/${destRelative}`;
+}
+
+export async function duplicateProject(req: AuthRequest, res: Response, next: NextFunction) {
+  try {
+    if (!req.userId) throw new AppError('请先登录', 401);
+    const id = req.params.id as string;
+    const source = await Project.findOne({ where: { id, userId: req.userId } });
+    if (!source) throw new AppError('项目不存在', 404);
+
+    const uploadsRoot = path.resolve(__dirname, '..', '..', config.upload.dir);
+
+    // 1. 查原分屏
+    const sourceScreens = await Screen.findAll({
+      where: { projectId: id },
+      order: [['screenIndex', 'ASC']],
+    });
+
+    // 2. 创建新项目（先写入临时 referenceImageUrls，后面更新为正确路径）
+    const newProject = await Project.create({
+      userId: req.userId!,
+      name: `${source.name}（副本）`,
+      platform: source.platform,
+      language: source.language,
+      status: source.status,
+      screenCount: source.screenCount,
+      sellingPoints: source.sellingPoints,
+      targetAudience: source.targetAudience,
+      priceRange: source.priceRange,
+      designRequirements: source.designRequirements,
+      category: source.category,
+      referenceStyle: source.referenceStyle,
+      material: source.material,
+      productSpecs: source.productSpecs,
+      // 节点输出全部拷贝
+      infoAnalysisResult: source.infoAnalysisResult,
+      designPlanResult: source.designPlanResult,
+      promptGenMotherPrompt: source.promptGenMotherPrompt,
+      jointGenInstruction: source.jointGenInstruction,
+      referenceImageUrls: source.referenceImageUrls || [],
+    });
+    const newId = newProject.id;
+
+    // 3. 拷贝参考图文件 + 修正路径
+    const refUrls = source.referenceImageUrls as string[] || [];
+    const newRefUrls = refUrls.map((u: string) => remapUploadUrl(u, id, newId, uploadsRoot));
+    await newProject.update({ referenceImageUrls: newRefUrls });
+
+    // 4. 创建分屏——深拷贝 prompt、status、图片等
+    const newScreens = await Promise.all(sourceScreens.map(s =>
+      Screen.create({
+        projectId: newId,
+        screenIndex: s.screenIndex,
+        label: s.label,
+        theme: s.theme,
+        status: s.status,
+        prompt: s.prompt,
+        imageUrl: s.imageUrl ? remapUploadUrl(s.imageUrl, id, newId, uploadsRoot) : null,
+        originalImageUrl: s.originalImageUrl ? remapUploadUrl(s.originalImageUrl, id, newId, uploadsRoot) : null,
+        revisionFeedback: s.revisionFeedback,
+      })
+    ));
+
+    res.json({
+      success: true,
+      data: {
+        ...newProject.toJSON(),
+        screens: newScreens,
+      },
+    });
   } catch (err) {
     next(err);
   }

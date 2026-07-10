@@ -88,6 +88,10 @@ export async function listProjects() {
   return request('/projects');
 }
 
+export async function duplicateProject(id: string) {
+  return request(`/projects/${id}/duplicate`, { method: 'POST' });
+}
+
 // ── 四节点工作流 ──────────────────────────────────────────
 
 export async function analyzeProject(id: string) {

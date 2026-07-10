@@ -1,5 +1,6 @@
 import { motion } from "motion/react";
 import { useNavigate } from "react-router";
+import { FolderOpen } from "lucide-react";
 import { DualGunLogo } from "./DualGunLogo";
 import { useAuth } from "../../context/AuthContext";
 
@@ -34,6 +35,39 @@ export function Navbar() {
 
       {isAuthenticated ? (
         <div style={{ display: "flex", alignItems: "center", gap: "14px" }}>
+          <motion.button
+            whileHover={{ scale: 1.04 }}
+            whileTap={{ scale: 0.96 }}
+            onClick={() => navigate("/projects")}
+            style={{
+              display: "flex",
+              alignItems: "center",
+              gap: "6px",
+              padding: "7px 16px",
+              borderRadius: "50px",
+              background: "transparent",
+              border: "1px solid rgba(30,20,32,0.1)",
+              color: "#4A3856",
+              fontSize: "13px",
+              fontWeight: 500,
+              cursor: "pointer",
+              fontFamily: "'Space Grotesk', sans-serif",
+              transition: "all 0.2s",
+            }}
+            onMouseEnter={(e) => {
+              e.currentTarget.style.background = "rgba(0,0,0,0.03)";
+              e.currentTarget.style.borderColor = "rgba(249,115,22,0.2)";
+              e.currentTarget.style.color = "#f97316";
+            }}
+            onMouseLeave={(e) => {
+              e.currentTarget.style.background = "transparent";
+              e.currentTarget.style.borderColor = "rgba(30,20,32,0.1)";
+              e.currentTarget.style.color = "#4A3856";
+            }}
+          >
+            <FolderOpen size={14} />
+            我的项目
+          </motion.button>
           {user?.avatar ? (
             <img
               src={user.avatar}

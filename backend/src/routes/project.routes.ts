@@ -7,7 +7,7 @@ import { config } from '../config';
 import { authMiddleware } from '../middleware/auth.middleware';
 import type { AuthRequest } from '../middleware/auth.middleware';
 import {
-  createProject, getProject, deleteProject, listProjects,
+  createProject, getProject, deleteProject, listProjects, duplicateProject,
   analyzeProject, planProject, generatePrompts,
   generateScreen, approveScreenHandler, reviseScreenHandler, editScreenHandler,
   exportProject, getLatestExport, updateDesignPlan,
@@ -61,6 +61,7 @@ router.post('/', authMiddleware, preGenerateProjectId, upload.array('referenceIm
 router.get('/', authMiddleware, listProjects);
 router.get('/:id', authMiddleware, getProject);
 router.delete('/:id', authMiddleware, deleteProject);
+router.post('/:id/duplicate', authMiddleware, duplicateProject);
 
 // ─── 四节点工作流 ─────────────────────────────────────────
 router.post('/:id/analyze', authMiddleware, analyzeProject);       // 节点1
