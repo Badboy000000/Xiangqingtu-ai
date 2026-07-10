@@ -21,6 +21,9 @@ export async function register(req: AuthRequest, res: Response, next: NextFuncti
     if (!username || !email || !password) {
       throw new AppError('用户名、邮箱和密码为必填项', 400);
     }
+    if (username.length < 3 || username.length > 50) {
+      throw new AppError('用户名长度需要 3-50 个字符', 400);
+    }
     if (password.length < 6) {
       throw new AppError('密码至少需要 6 个字符', 400);
     }

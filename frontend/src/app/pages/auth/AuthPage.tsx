@@ -199,6 +199,7 @@ export function AuthPage() {
   const [avatarFile, setAvatarFile] = useState<File | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [fieldErrors, setFieldErrors] = useState<{ username?: string; email?: string; password?: string }>({});
   const [shake, setShake] = useState(false);
 
   const { login, register, isAuthenticated, loading } = useAuth();
@@ -231,20 +232,52 @@ export function AuthPage() {
     setTimeout(() => setShake(false), 500);
   };
 
+  /** 注册表单前端校验，返回是否有错误 */
+  const validateRegister = (): boolean => {
+    const errs: typeof fieldErrors = {};
+    if (!regUser.trim()) {
+      errs.username = "请输入用户名";
+    } else if (regUser.trim().length < 3) {
+      errs.username = "用户名至少 3 个字符";
+    } else if (regUser.trim().length > 50) {
+      errs.username = "用户名最多 50 个字符";
+    }
+    if (!regEmail.trim()) {
+      errs.email = "请输入邮箱";
+    } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(regEmail.trim())) {
+      errs.email = "邮箱格式不正确";
+    }
+    if (!regPass) {
+      errs.password = "请输入密码";
+    } else if (regPass.length < 6) {
+      errs.password = "密码至少 6 个字符";
+    }
+    setFieldErrors(errs);
+    return Object.keys(errs).length > 0;
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
+    setFieldErrors({});
     setSubmitting(true);
 
     try {
       if (mode === "login") {
         await login({ account: loginAccount, password: loginPass });
       } else {
+        // 前端校验
+        if (validateRegister()) {
+          setSubmitting(false);
+          triggerShake();
+          return;
+        }
+
         await register({ 
-          username: regUser, 
-          email: regEmail, 
+          username: regUser.trim(), 
+          email: regEmail.trim(), 
           password: regPass, 
-          nickname: regUser,
+          nickname: regUser.trim(),
           avatar: avatarPreview || undefined 
         });
         // 注册成功放烟花
@@ -256,7 +289,21 @@ export function AuthPage() {
       }
       navigate("/", { replace: true });
     } catch (err: any) {
-      setError(err.message || "操作失败");
+      const msg = err.message || "操作失败";
+      // 将后端返回的常见错误映射到对应字段
+      if (mode === "register") {
+        if (msg.includes("已被占用") || msg.includes("用户名")) {
+          setFieldErrors(prev => ({ ...prev, username: msg }));
+        } else if (msg.includes("已被注册") || msg.includes("邮箱")) {
+          setFieldErrors(prev => ({ ...prev, email: msg }));
+        } else if (msg.includes("密码")) {
+          setFieldErrors(prev => ({ ...prev, password: msg }));
+        } else {
+          setError(msg);
+        }
+      } else {
+        setError(msg);
+      }
       triggerShake();
     } finally {
       setSubmitting(false);
@@ -266,6 +313,7 @@ export function AuthPage() {
   const switchMode = () => {
     setMode(m => m === "login" ? "register" : "login");
     setError(null);
+    setFieldErrors({});
   };
 
   // 压缩图片并返回 Base64
@@ -652,12 +700,12 @@ export function AuthPage() {
                     </motion.label>
                   </div>
 
-                  <FloatingInput label="用户名 / 昵称" value={regUser} onChange={setRegUser} />
-                  <p style={{ fontSize: "12px", color: C.inkSub, margin: "-16px 0 16px 4px" }}>
+                  <FloatingInput label="用户名 / 昵称" value={regUser} onChange={v => { setRegUser(v); if (fieldErrors.username) setFieldErrors(prev => ({ ...prev, username: undefined })); }} error={fieldErrors.username} />
+                  <p style={{ fontSize: "12px", color: C.inkSub, margin: fieldErrors.username ? "0 0 12px 4px" : "-16px 0 16px 4px" }}>
                     此名称将用于登录和显示
                   </p>
-                  <FloatingInput label="邮箱" type="email" value={regEmail} onChange={setRegEmail} />
-                  <FloatingInput label="密码" type="password" value={regPass} onChange={setRegPass} />
+                  <FloatingInput label="邮箱" type="email" value={regEmail} onChange={v => { setRegEmail(v); if (fieldErrors.email) setFieldErrors(prev => ({ ...prev, email: undefined })); }} error={fieldErrors.email} />
+                  <FloatingInput label="密码" type="password" value={regPass} onChange={v => { setRegPass(v); if (fieldErrors.password) setFieldErrors(prev => ({ ...prev, password: undefined })); }} error={fieldErrors.password} />
                 </motion.div>
               )}
             </AnimatePresence>
