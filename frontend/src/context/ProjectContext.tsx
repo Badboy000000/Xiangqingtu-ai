@@ -759,7 +759,13 @@ export function ProjectProvider({ children }: { children: ReactNode }) {
         dispatch({ type: 'SET_WORKFLOW_HAS_RUN', payload: false });
       }
     } catch (err: any) {
-      dispatch({ type: 'SET_ERROR', payload: err.message || '加载项目失败' });
+      const message = err.message || '加载项目失败';
+      if (message.includes('项目不存在') || message.includes('恢复期限')) {
+        localStorage.removeItem('currentProjectId');
+        window.location.href = '/projects';
+        return;
+      }
+      dispatch({ type: 'SET_ERROR', payload: message });
     } finally {
       // ← Layer 1: 加载完成，解除锁定
       dispatch({ type: 'SET_PROJECT_LOADING', payload: false });

@@ -92,6 +92,16 @@ export async function duplicateProject(id: string) {
   return request(`/projects/${id}/duplicate`, { method: 'POST' });
 }
 
+// ── 回收站 ──────────────────────────────────────────────
+
+export async function listDeletedProjects() {
+  return request('/projects/trash');
+}
+
+export async function restoreProject(id: string) {
+  return request(`/projects/${id}/restore`, { method: 'POST' });
+}
+
 // ── 四节点工作流 ──────────────────────────────────────────
 
 export async function analyzeProject(id: string) {

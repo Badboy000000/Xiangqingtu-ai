@@ -1,4 +1,5 @@
 import { Response, NextFunction } from 'express';
+import { Op } from 'sequelize';
 import fs from 'fs';
 import path from 'path';
 import { Project, Screen, ScreenVersion, ScreenRevision, ExportRecord } from '../models';
@@ -9,6 +10,12 @@ import {
   approveScreen, reviseScreen, editScreen, runExport,
 } from '../services/workflow.service';
 import { config } from '../config';
+
+const TRASH_RETENTION_DAYS = 7;
+
+function getTrashCutoff() {
+  return new Date(Date.now() - TRASH_RETENTION_DAYS * 24 * 60 * 60 * 1000);
+}
 
 // ─── 项目管理 ─────────────────────────────────────────────
 
@@ -87,10 +94,47 @@ export async function deleteProject(req: AuthRequest, res: Response, next: NextF
     const id = req.params.id as string;
     const project = await Project.findOne({ where: { id, userId: req.userId } });
     if (!project) throw new AppError('项目不存在', 404);
-    await Screen.destroy({ where: { projectId: id } });
-    await ExportRecord.destroy({ where: { projectId: id } });
-    await project.destroy();
-    res.json({ success: true, message: '项目已删除' });
+    await project.destroy(); // 软删除：仅设置 deletedAt，不删除子记录
+    res.json({ success: true, message: '项目已移入回收站' });
+  } catch (err) {
+    next(err);
+  }
+}
+
+export async function restoreProject(req: AuthRequest, res: Response, next: NextFunction) {
+  try {
+    if (!req.userId) throw new AppError('请先登录', 401);
+    const id = req.params.id as string;
+    const cutoff = getTrashCutoff();
+    const project = await Project.findOne({
+      where: {
+        id,
+        userId: req.userId,
+        deletedAt: { [Op.gte]: cutoff },
+      },
+      paranoid: false,
+    });
+    if (!project || !project.deletedAt) throw new AppError('项目不存在或已超过恢复期限', 404);
+    await project.restore();
+    res.json({ success: true, message: '项目已恢复' });
+  } catch (err) {
+    next(err);
+  }
+}
+
+export async function listDeletedProjects(req: AuthRequest, res: Response, next: NextFunction) {
+  try {
+    if (!req.userId) throw new AppError('请先登录', 401);
+    const cutoff = getTrashCutoff();
+    const projects = await Project.findAll({
+      where: {
+        userId: req.userId,
+        deletedAt: { [Op.gte]: cutoff },
+      },
+      paranoid: false,
+      order: [['deletedAt', 'DESC']],
+    });
+    res.json({ success: true, data: projects.map(p => p.toJSON()) });
   } catch (err) {
     next(err);
   }

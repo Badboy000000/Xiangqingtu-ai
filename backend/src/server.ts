@@ -70,6 +70,7 @@ async function safeMigrateColumns() {
     { table: 'projects', column: 'language', sql: "VARCHAR(20) NOT NULL DEFAULT 'zh-CN'" },
     { table: 'projects', column: 'material', sql: 'VARCHAR(255) NULL' },
     { table: 'projects', column: 'product_specs', sql: 'TEXT NULL' },
+    { table: 'projects', column: 'deleted_at', sql: 'DATETIME NULL DEFAULT NULL' },
   ];
 
   for (const col of columns) {

@@ -10,6 +10,7 @@ import {
   Folder,
   Globe,
   ChevronDown,
+  Recycle,
 } from "lucide-react";
 import * as api from "../../api";
 import { Navbar } from "../components/Navbar";
@@ -94,10 +95,14 @@ export function ProjectsPage() {
 
   const handleDelete = async () => {
     if (!confirmDelete) return;
+    const deletingProjectId = confirmDelete.id;
     try {
-      setDeletingId(confirmDelete.id);
-      await api.deleteProject(confirmDelete.id);
-      setProjects((prev) => prev.filter((p) => p.id !== confirmDelete.id));
+      setDeletingId(deletingProjectId);
+      await api.deleteProject(deletingProjectId);
+      setProjects((prev) => prev.filter((p) => p.id !== deletingProjectId));
+      if (localStorage.getItem("currentProjectId") === deletingProjectId) {
+        localStorage.removeItem("currentProjectId");
+      }
       setConfirmDelete(null);
     } catch (e: any) {
       alert(e.message || "删除失败");
@@ -153,29 +158,53 @@ export function ProjectsPage() {
                 管理你的电商详情图生成项目
               </p>
             </div>
-            <motion.button
-              whileHover={{ scale: 1.03, boxShadow: "0 6px 24px rgba(249,115,22,0.22)" }}
-              whileTap={{ scale: 0.97 }}
-              onClick={() => navigate("/")}
-              style={{
-                display: "flex",
-                alignItems: "center",
-                gap: "8px",
-                padding: "10px 22px",
-                borderRadius: "50px",
-                background: "linear-gradient(135deg, #f97316 0%, #fb923c 100%)",
-                border: "none",
-                color: "#fff",
-                fontSize: "14px",
-                fontWeight: 600,
-                cursor: "pointer",
-                boxShadow: "0 4px 16px rgba(249,115,22,0.25)",
-                fontFamily: zh,
-              }}
-            >
-              <Plus size={16} strokeWidth={2.5} />
-              新建项目
-            </motion.button>
+            <div style={{ display: "flex", gap: "10px" }}>
+              <motion.button
+                whileHover={{ scale: 1.03 }}
+                whileTap={{ scale: 0.97 }}
+                onClick={() => navigate("/trash")}
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  gap: "6px",
+                  padding: "10px 18px",
+                  borderRadius: "50px",
+                  background: "rgba(0,0,0,0.04)",
+                  border: "1px solid rgba(0,0,0,0.08)",
+                  color: "rgba(30,20,32,0.5)",
+                  fontSize: "13px",
+                  fontWeight: 500,
+                  cursor: "pointer",
+                  fontFamily: zh,
+                }}
+              >
+                <Recycle size={15} />
+                回收站
+              </motion.button>
+              <motion.button
+                whileHover={{ scale: 1.03, boxShadow: "0 6px 24px rgba(249,115,22,0.22)" }}
+                whileTap={{ scale: 0.97 }}
+                onClick={() => navigate("/")}
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  gap: "8px",
+                  padding: "10px 22px",
+                  borderRadius: "50px",
+                  background: "linear-gradient(135deg, #f97316 0%, #fb923c 100%)",
+                  border: "none",
+                  color: "#fff",
+                  fontSize: "14px",
+                  fontWeight: 600,
+                  cursor: "pointer",
+                  boxShadow: "0 4px 16px rgba(249,115,22,0.25)",
+                  fontFamily: zh,
+                }}
+              >
+                <Plus size={16} strokeWidth={2.5} />
+                新建项目
+              </motion.button>
+            </div>
           </div>
 
           {/* 加载中 */}
@@ -259,7 +288,6 @@ export function ProjectsPage() {
                 {projects.map((project) => {
                   const status = STATUS_MAP[project.status] || STATUS_MAP.draft;
                   const isDuplicating = duplicatingId === project.id;
-                  const isDeleting = deletingId === project.id;
                   const menuOpen = menuOpenId === project.id;
 
                   return (
@@ -574,7 +602,7 @@ export function ProjectsPage() {
                 确认删除
               </h3>
               <p style={{ fontSize: "13px", color: "rgba(30,20,32,0.5)", margin: "0 0 24px", lineHeight: 1.6 }}>
-                删除项目「{confirmDelete.name}」后无法恢复，确定要删除吗？
+                将项目「{confirmDelete.name}」移到回收站，可以随时恢复。
               </p>
               <div style={{ display: "flex", gap: "10px", justifyContent: "flex-end" }}>
                 <button
@@ -613,7 +641,7 @@ export function ProjectsPage() {
                   }}
                 >
                   {deletingId && <Loader2 size={13} className="animate-spin" />}
-                  删除
+                  移到回收站
                 </button>
               </div>
             </motion.div>

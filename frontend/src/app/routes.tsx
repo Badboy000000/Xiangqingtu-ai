@@ -7,6 +7,7 @@ import { ProtectedRoute } from "./components/ProtectedRoute";
 const CanvasPage = lazy(() => import("./pages/CanvasPage").then(m => ({ default: m.CanvasPage })));
 const ExportPage = lazy(() => import("./pages/ExportPage").then(m => ({ default: m.ExportPage })));
 const ProjectsPage = lazy(() => import("./pages/ProjectsPage").then(m => ({ default: m.ProjectsPage })));
+const TrashPage = lazy(() => import("./pages/TrashPage").then(m => ({ default: m.TrashPage })));
 
 function Loading() {
   return (
@@ -50,6 +51,14 @@ export const router = createBrowserRouter([
     Component: () => (
       <ProtectedRoute>
         <LazyWrap><ProjectsPage /></LazyWrap>
+      </ProtectedRoute>
+    ),
+  },
+  {
+    path: "/trash",
+    Component: () => (
+      <ProtectedRoute>
+        <LazyWrap><TrashPage /></LazyWrap>
       </ProtectedRoute>
     ),
   },

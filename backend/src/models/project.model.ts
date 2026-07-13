@@ -31,6 +31,7 @@ interface ProjectAttributes {
   jointGenInstruction: string | null;                  // 节点4: 联合生图总指令
   createdAt?: Date;
   updatedAt?: Date;
+  deletedAt?: Date | null;
 }
 
 interface ProjectCreationAttributes extends Optional<ProjectAttributes,
@@ -62,6 +63,7 @@ export class Project extends Model<ProjectAttributes, ProjectCreationAttributes>
   declare jointGenInstruction: string | null;
   declare createdAt: Date;
   declare updatedAt: Date;
+  declare deletedAt: Date | null;
 }
 
 Project.init(
@@ -194,6 +196,8 @@ Project.init(
     sequelize,
     tableName: 'projects',
     comment: '项目表 — 一个商品详情页生成任务的完整生命周期',
+    timestamps: true,
+    paranoid: true,
   },
 );
 

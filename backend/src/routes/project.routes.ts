@@ -8,6 +8,7 @@ import { authMiddleware } from '../middleware/auth.middleware';
 import type { AuthRequest } from '../middleware/auth.middleware';
 import {
   createProject, getProject, deleteProject, listProjects, duplicateProject,
+  restoreProject, listDeletedProjects,
   analyzeProject, planProject, generatePrompts,
   generateScreen, approveScreenHandler, reviseScreenHandler, editScreenHandler,
   exportProject, getLatestExport, updateDesignPlan,
@@ -59,8 +60,10 @@ const upload = multer({
 // ─── 项目管理 ─────────────────────────────────────────────
 router.post('/', authMiddleware, preGenerateProjectId, upload.array('referenceImages', 10), createProject);
 router.get('/', authMiddleware, listProjects);
+router.get('/trash', authMiddleware, listDeletedProjects);  // 回收站列表（须在 /:id 之前）
 router.get('/:id', authMiddleware, getProject);
-router.delete('/:id', authMiddleware, deleteProject);
+router.delete('/:id', authMiddleware, deleteProject);         // 软删除 → 移入回收站
+router.post('/:id/restore', authMiddleware, restoreProject);   // 从回收站恢复
 router.post('/:id/duplicate', authMiddleware, duplicateProject);
 
 // ─── 四节点工作流 ─────────────────────────────────────────
